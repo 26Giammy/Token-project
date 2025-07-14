@@ -1,12 +1,26 @@
 "use client"
 
 import { Star, Gift, Coffee, Scissors, ShoppingBag, LogOut, Crown } from "lucide-react"
-import { signOut } from "@/app/actions" // Import the signOut action
+import { signOut, getUserProfile, redeemPoints, addPoints } from "@/app/actions" // Import new actions
 import { toast } from "sonner"
+import { useEffect, useState } from "react"
 
 interface DashboardProps {
   userName: string
   onLogout: () => void
+}
+
+interface UserProfile {
+  id: string
+  email: string
+  points: number
+}
+
+interface PointActivity {
+  type: "earn" | "redeem"
+  amount: number
+  description: string
+  created_at: string
 }
 
 const rewards = [
@@ -41,6 +55,26 @@ const rewards = [
 ]
 
 export default function Dashboard({ userName, onLogout }: DashboardProps) {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [recentActivity, setRecentActivity] = useState<PointActivity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      setIsLoading(true)
+      const result = await getUserProfile()
+      if (result.success && result.profile) {
+        setUserProfile(result.profile)
+        setRecentActivity(result.activity || [])
+      } else {
+        toast.error(result.message || "Failed to load dashboard data.")
+        onLogout() // Force logout if profile cannot be loaded
+      }
+      setIsLoading(false)
+    }
+    fetchProfileData()
+  }, [onLogout])
+
   const handleLogout = async () => {
     const result = await signOut()
     if (result.success) {
@@ -49,6 +83,60 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
     } else {
       toast.error(result.message)
     }
+  }
+
+  const handleRedeem = async (rewardPoints: number, rewardName: string) => {
+    if (!userProfile) {
+      toast.error("User profile not loaded.")
+      return
+    }
+    if (userProfile.points < rewardPoints) {
+      toast.error("Not enough points to redeem this reward.")
+      return
+    }
+
+    const result = await redeemPoints(userProfile.id, rewardPoints, `Redeemed ${rewardName}`)
+    if (result.success && result.newPoints !== undefined) {
+      toast.success(result.message)
+      setUserProfile((prev) => (prev ? { ...prev, points: result.newPoints } : null))
+      // Re-fetch activity to show the new transaction
+      const activityResult = await getUserProfile()
+      if (activityResult.success && activityResult.activity) {
+        setRecentActivity(activityResult.activity)
+      }
+    } else {
+      toast.error(result.message || "Failed to redeem reward.")
+    }
+  }
+
+  // Placeholder for adding points (e.g., after a simulated purchase)
+  const handleAddPoints = async () => {
+    if (!userProfile) {
+      toast.error("User profile not loaded.")
+      return
+    }
+    const pointsToAdd = 50 // Example: 50 points for a purchase
+    const description = "Purchase at Cafe"
+    const result = await addPoints(userProfile.id, pointsToAdd, description)
+    if (result.success && result.newPoints !== undefined) {
+      toast.success(result.message)
+      setUserProfile((prev) => (prev ? { ...prev, points: result.newPoints } : null))
+      // Re-fetch activity to show the new transaction
+      const activityResult = await getUserProfile()
+      if (activityResult.success && activityResult.activity) {
+        setRecentActivity(activityResult.activity)
+      }
+    } else {
+      toast.error(result.message || "Failed to add points.")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
   }
 
   return (
@@ -78,7 +166,7 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
               <p className="text-purple-100 text-sm font-medium">Your Points</p>
               <div className="flex items-center gap-2 mt-1">
                 <Star className="w-6 h-6 text-yellow-300 fill-current" />
-                <span className="text-3xl font-bold">320</span>
+                <span className="text-3xl font-bold">{userProfile?.points ?? 0}</span>
               </div>
             </div>
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
@@ -86,7 +174,11 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-white/20">
-            <p className="text-purple-100 text-sm">You're 180 points away from your next reward!</p>
+            <p className="text-purple-100 text-sm">
+              {userProfile && userProfile.points < 200
+                ? `You're ${200 - userProfile.points} points away from your first reward!`
+                : "You have enough points for rewards!"}
+            </p>
           </div>
         </div>
 
@@ -97,7 +189,7 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
           <div className="grid gap-4">
             {rewards.map((reward) => {
               const IconComponent = reward.icon
-              const canRedeem = 320 >= reward.points
+              const canRedeem = (userProfile?.points ?? 0) >= reward.points
 
               return (
                 <div
@@ -117,6 +209,7 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
                     </div>
 
                     <button
+                      onClick={() => handleRedeem(reward.points, reward.name)}
                       disabled={!canRedeem}
                       className={`px-4 py-2 rounded-full font-medium text-sm transition-all ${
                         canRedeem
@@ -138,30 +231,40 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
           <h2 className="text-xl font-bold text-gray-800">Recent Activity</h2>
 
           <div className="space-y-3">
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-white/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-800">Purchase at Salon</p>
-                  <p className="text-sm text-gray-600">2 hours ago</p>
+            {recentActivity.length > 0 ? (
+              recentActivity.map((activity, index) => (
+                <div
+                  key={index}
+                  className="bg-white/70 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-white/50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-800">{activity.description}</p>
+                      <p className="text-sm text-gray-600">{new Date(activity.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${activity.type === "earn" ? "text-green-600" : "text-red-600"}`}>
+                        {activity.type === "earn" ? "+" : "-"}
+                        {Math.abs(activity.amount)} points
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-green-600">+50 points</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 shadow-sm border border-white/50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-800">Redeemed Free Coffee</p>
-                  <p className="text-sm text-gray-600">Yesterday</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-red-600">-200 points</p>
-                </div>
-              </div>
-            </div>
+              ))
+            ) : (
+              <p className="text-center text-gray-500">No recent activity.</p>
+            )}
           </div>
+        </div>
+
+        {/* Example button to add points (for testing) */}
+        <div className="text-center pt-4">
+          <button
+            onClick={handleAddPoints}
+            className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Simulate Earning 50 Points
+          </button>
         </div>
       </main>
     </div>

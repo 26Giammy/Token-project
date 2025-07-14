@@ -6,8 +6,6 @@ import { supabase } from "@/lib/supabase" // Server-side Supabase client
 const resend = new Resend(process.env.RESEND_API_KEY)
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
 
-// This action is no longer needed for the new flow, but keeping it as a placeholder
-// if you still want to send custom emails for other purposes.
 export async function sendCustomEmail(toEmail: string, subject: string, htmlContent: string) {
   try {
     await resend.emails.send({
@@ -37,7 +35,7 @@ export async function signUp(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`, // Important for email verification
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`,
       },
     })
 
@@ -46,8 +44,20 @@ export async function signUp(formData: FormData) {
       return { success: false, message: error.message || "Failed to sign up. Please try again." }
     }
 
+    if (data.user) {
+      // Create a profile entry for the new user
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({ id: data.user.id, email: data.user.email, points: 0 }) // Initialize points to 0
+
+      if (profileError) {
+        console.error("Supabase profile creation error:", profileError)
+        // Optionally, you might want to delete the user from auth.users if profile creation fails
+        return { success: false, message: "Account created, but failed to set up profile. Please contact support." }
+      }
+    }
+
     if (data.user && !data.session) {
-      // User signed up but email verification is required
       return { success: true, message: "Account created! Please check your email for a verification link." }
     }
 
@@ -91,5 +101,130 @@ export async function signOut() {
   } catch (error) {
     console.error("Unexpected error during sign out:", error)
     return { success: false, message: "An unexpected error occurred." }
+  }
+}
+
+export async function getUserProfile() {
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      console.error("Error getting user:", userError)
+      return { success: false, message: "User not authenticated.", profile: null, activity: [] }
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, email, points")
+      .eq("id", user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.error("Error fetching user profile:", profileError)
+      return { success: false, message: "Failed to load user profile.", profile: null, activity: [] }
+    }
+
+    const { data: activity, error: activityError } = await supabase
+      .from("point_transactions")
+      .select("type, amount, description, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5) // Fetch last 5 activities
+
+    if (activityError) {
+      console.error("Error fetching point activity:", activityError)
+      // Still return profile even if activity fails
+      return { success: true, message: "Profile loaded, but failed to load activity.", profile, activity: [] }
+    }
+
+    return { success: true, message: "Profile and activity loaded.", profile, activity }
+  } catch (error) {
+    console.error("Unexpected error in getUserProfile:", error)
+    return { success: false, message: "An unexpected error occurred.", profile: null, activity: [] }
+  }
+}
+
+export async function addPoints(userId: string, amount: number, description: string) {
+  try {
+    // Update user's points
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        points: (await supabase.from("profiles").select("points").eq("id", userId).single()).data?.points + amount,
+      })
+      .eq("id", userId)
+      .select("points")
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error("Error updating points:", updateError)
+      return { success: false, message: "Failed to add points." }
+    }
+
+    // Record transaction
+    const { error: transactionError } = await supabase
+      .from("point_transactions")
+      .insert({ user_id: userId, type: "earn", amount, description })
+
+    if (transactionError) {
+      console.error("Error recording point transaction:", transactionError)
+      // Consider rolling back points update if transaction fails, or handle separately
+      return { success: false, message: "Points added, but failed to record transaction." }
+    }
+
+    return { success: true, message: `${amount} points added!`, newPoints: updatedProfile.points }
+  } catch (error) {
+    console.error("Unexpected error in addPoints:", error)
+    return { success: false, message: "An unexpected error occurred while adding points." }
+  }
+}
+
+export async function redeemPoints(userId: string, amount: number, description: string) {
+  try {
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", userId)
+      .single()
+
+    if (fetchError || !currentProfile) {
+      console.error("Error fetching current points for redemption:", fetchError)
+      return { success: false, message: "Failed to fetch current points." }
+    }
+
+    if (currentProfile.points < amount) {
+      return { success: false, message: "Not enough points to redeem this reward." }
+    }
+
+    // Update user's points
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("profiles")
+      .update({ points: currentProfile.points - amount })
+      .eq("id", userId)
+      .select("points")
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error("Error updating points for redemption:", updateError)
+      return { success: false, message: "Failed to redeem points." }
+    }
+
+    // Record transaction
+    const { error: transactionError } = await supabase
+      .from("point_transactions")
+      .insert({ user_id: userId, type: "redeem", amount: -amount, description }) // Store as negative for redemption
+
+    if (transactionError) {
+      console.error("Error recording redemption transaction:", transactionError)
+      return { success: false, message: "Points redeemed, but failed to record transaction." }
+    }
+
+    return { success: true, message: `${amount} points redeemed!`, newPoints: updatedProfile.points }
+  } catch (error) {
+    console.error("Unexpected error in redeemPoints:", error)
+    return { success: false, message: "An unexpected error occurred during point redemption." }
   }
 }
