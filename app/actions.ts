@@ -112,6 +112,9 @@ export async function getUserProfile() {
       error: userError,
     } = await supabase.auth.getUser()
 
+    console.log("getUserProfile: user data", user)
+    console.log("getUserProfile: user error", userError)
+
     if (userError || !user) {
       console.error("Error getting user:", userError)
       return { success: false, message: "User not authenticated.", profile: null, activity: [] }
@@ -122,6 +125,9 @@ export async function getUserProfile() {
       .select("id, email, points, is_admin") // Include is_admin
       .eq("id", user.id)
       .maybeSingle()
+
+    console.log("getUserProfile: profile data", profile)
+    console.log("getUserProfile: profile error", profileError)
 
     if (profileError) {
       console.error("Error fetching user profile:", profileError)
@@ -137,6 +143,9 @@ export async function getUserProfile() {
         .select("id, email, points, is_admin") // Select is_admin for new profile too
         .single()
 
+      console.log("getUserProfile: new profile data", newProfile)
+      console.log("getUserProfile: create profile error", createProfileError)
+
       if (createProfileError || !newProfile) {
         console.error("Error creating new profile:", createProfileError)
         return { success: false, message: "Failed to create user profile.", profile: null, activity: [] }
@@ -150,6 +159,9 @@ export async function getUserProfile() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(5)
+
+    console.log("getUserProfile: activity data", activity)
+    console.log("getUserProfile: activity error", activityError)
 
     if (activityError) {
       console.error("Error fetching point activity:", activityError)
