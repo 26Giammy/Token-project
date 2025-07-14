@@ -1,19 +1,21 @@
 "use client"
 
-import { Star, Gift, Coffee, Scissors, ShoppingBag, LogOut, Crown } from "lucide-react"
-import { signOut, getUserProfile, redeemPoints, addPoints } from "@/app/actions" // Import new actions
+import { Star, Gift, Coffee, Scissors, ShoppingBag, LogOut, Crown, Utensils, Percent } from "lucide-react" // Added Utensils, Percent
+import { signOut, getUserProfile, redeemPoints } from "@/app/actions" // Removed addPoints
 import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 interface DashboardProps {
   userName: string
   onLogout: () => void
+  isAdmin: boolean // New prop to indicate if the user is an admin
 }
 
 interface UserProfile {
   id: string
   email: string
   points: number
+  is_admin: boolean // Include is_admin in the type
 }
 
 interface PointActivity {
@@ -52,9 +54,23 @@ const rewards = [
     icon: Crown,
     gradient: "from-yellow-400 to-amber-500",
   },
+  {
+    id: 5,
+    name: "Free Dessert",
+    points: 150,
+    icon: Utensils,
+    gradient: "from-green-400 to-lime-500",
+  },
+  {
+    id: 6,
+    name: "15% Off Total Bill",
+    points: 400,
+    icon: Percent,
+    gradient: "from-red-400 to-rose-500",
+  },
 ]
 
-export default function Dashboard({ userName, onLogout }: DashboardProps) {
+export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [recentActivity, setRecentActivity] = useState<PointActivity[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -97,7 +113,7 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
 
     const result = await redeemPoints(userProfile.id, rewardPoints, `Redeemed ${rewardName}`)
     if (result.success && result.newPoints !== undefined) {
-      toast.success(result.message)
+      toast.success(result.message + " An admin will provide your reward code shortly.") // Added message for admin
       setUserProfile((prev) => (prev ? { ...prev, points: result.newPoints } : null))
       // Re-fetch activity to show the new transaction
       const activityResult = await getUserProfile()
@@ -106,28 +122,6 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
       }
     } else {
       toast.error(result.message || "Failed to redeem reward.")
-    }
-  }
-
-  // Placeholder for adding points (e.g., after a simulated purchase)
-  const handleAddPoints = async () => {
-    if (!userProfile) {
-      toast.error("User profile not loaded.")
-      return
-    }
-    const pointsToAdd = 50 // Example: 50 points for a purchase
-    const description = "Purchase at Cafe"
-    const result = await addPoints(userProfile.id, pointsToAdd, description)
-    if (result.success && result.newPoints !== undefined) {
-      toast.success(result.message)
-      setUserProfile((prev) => (prev ? { ...prev, points: result.newPoints } : null))
-      // Re-fetch activity to show the new transaction
-      const activityResult = await getUserProfile()
-      if (activityResult.success && activityResult.activity) {
-        setRecentActivity(activityResult.activity)
-      }
-    } else {
-      toast.error(result.message || "Failed to add points.")
     }
   }
 
@@ -255,16 +249,6 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
               <p className="text-center text-gray-500">No recent activity.</p>
             )}
           </div>
-        </div>
-
-        {/* Example button to add points (for testing) */}
-        <div className="text-center pt-4">
-          <button
-            onClick={handleAddPoints}
-            className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Simulate Earning 50 Points
-          </button>
         </div>
       </main>
     </div>

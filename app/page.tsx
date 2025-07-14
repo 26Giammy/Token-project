@@ -3,35 +3,63 @@
 import { useState, useEffect } from "react"
 import { Inter } from "next/font/google"
 import LandingPage from "./components/LandingPage"
-import SignUpForm from "./components/SignUpForm" // New import
-import SignInForm from "./components/SignInForm" // New import
+import SignUpForm from "./components/SignUpForm"
+import SignInForm from "./components/SignInForm"
 import Dashboard from "./components/Dashboard"
+import AdminDashboard from "./components/AdminDashboard" // New import
 import { supabaseClient } from "@/lib/supabase-client"
+import { getUserProfile } from "./actions" // Import getUserProfile to check admin status
+import { toast } from "react-toastify" // Declare toast variable
 
 const inter = Inter({ subsets: ["latin"] })
 
 export default function LoyaltyApp() {
-  const [currentPage, setCurrentPage] = useState<"landing" | "signup" | "signin" | "dashboard">("landing")
-  const [userName, setUserName] = useState("User") // Default name, will be updated from session
+  const [currentPage, setCurrentPage] = useState<"landing" | "signup" | "signin" | "dashboard" | "admin-dashboard">(
+    "landing",
+  )
+  const [userName, setUserName] = useState("User")
+  const [isAdmin, setIsAdmin] = useState(false) // New state for admin status
 
   useEffect(() => {
-    const checkSession = async () => {
+    const checkSessionAndProfile = async () => {
       const {
         data: { session },
       } = await supabaseClient.auth.getSession()
+
       if (session) {
-        setUserName(session.user.email?.split("@")[0] || "User")
-        setCurrentPage("dashboard")
+        const profileResult = await getUserProfile()
+        if (profileResult.success && profileResult.profile) {
+          setUserName(profileResult.profile.email?.split("@")[0] || "User")
+          setIsAdmin(profileResult.profile.is_admin)
+          setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
+        } else {
+          // If session exists but profile fails to load, log out
+          await supabaseClient.auth.signOut()
+          setCurrentPage("landing")
+          toast.error("Failed to load user profile. Please sign in again.")
+        }
+      } else {
+        setCurrentPage("landing")
       }
     }
-    checkSession()
+    checkSessionAndProfile()
 
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
-        setUserName(session.user.email?.split("@")[0] || "User")
-        setCurrentPage("dashboard")
+        const profileResult = await getUserProfile()
+        if (profileResult.success && profileResult.profile) {
+          setUserName(profileResult.profile.email?.split("@")[0] || "User")
+          setIsAdmin(profileResult.profile.is_admin)
+          setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
+        } else {
+          // Fallback if profile creation/fetch fails after sign-in
+          await supabaseClient.auth.signOut()
+          setCurrentPage("landing")
+          toast.error("Failed to load user profile after sign-in. Please try again.")
+        }
       } else if (event === "SIGNED_OUT") {
         setCurrentPage("landing")
+        setIsAdmin(false) // Reset admin status on sign out
       }
     })
 
@@ -40,27 +68,32 @@ export default function LoyaltyApp() {
     }
   }, [])
 
-  const navigateToPage = (page: "landing" | "signup" | "signin" | "dashboard") => {
+  const navigateToPage = (page: "landing" | "signup" | "signin" | "dashboard" | "admin-dashboard") => {
     setCurrentPage(page)
   }
 
   const handleSignUpSuccess = () => {
-    // After successful sign-up (and potential email verification),
-    // the onAuthStateChange listener will handle navigation to dashboard.
-    // For now, we can redirect to sign-in or show a message.
     navigateToPage("signin")
   }
 
-  const handleSignInSuccess = () => {
-    // onAuthStateChange listener will handle navigation to dashboard
-    // after successful sign-in.
-    navigateToPage("dashboard")
+  const handleSignInSuccess = async () => {
+    // After successful sign-in, re-check profile to determine dashboard or admin-dashboard
+    const profileResult = await getUserProfile()
+    if (profileResult.success && profileResult.profile) {
+      setUserName(profileResult.profile.email?.split("@")[0] || "User")
+      setIsAdmin(profileResult.profile.is_admin)
+      setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
+    } else {
+      // Should not happen often with maybeSingle fix, but as a fallback
+      await supabaseClient.auth.signOut()
+      setCurrentPage("landing")
+      toast.error("Failed to load user profile after sign-in. Please try again.")
+    }
   }
 
   const handleLogout = () => {
-    // signOut action will trigger onAuthStateChange to 'SIGNED_OUT'
-    // which will then navigate to 'landing'
     setCurrentPage("landing")
+    setIsAdmin(false)
   }
 
   return (
@@ -82,7 +115,8 @@ export default function LoyaltyApp() {
           onSignUpClick={() => navigateToPage("signup")}
         />
       )}
-      {currentPage === "dashboard" && <Dashboard userName={userName} onLogout={handleLogout} />}
+      {currentPage === "dashboard" && <Dashboard userName={userName} onLogout={handleLogout} isAdmin={isAdmin} />}
+      {currentPage === "admin-dashboard" && <AdminDashboard onLogout={handleLogout} />}
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { Resend } from "resend"
 import { supabase } from "@/lib/supabase" // Server-side Supabase client
+import { nanoid } from "nanoid" // For generating unique reward codes
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
@@ -118,9 +119,9 @@ export async function getUserProfile() {
 
     let { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, email, points")
+      .select("id, email, points, is_admin") // Include is_admin
       .eq("id", user.id)
-      .maybeSingle() // Changed from .single() to .maybeSingle()
+      .maybeSingle()
 
     if (profileError) {
       console.error("Error fetching user profile:", profileError)
@@ -133,8 +134,8 @@ export async function getUserProfile() {
       const { data: newProfile, error: createProfileError } = await supabase
         .from("profiles")
         .insert({ id: user.id, email: user.email, points: 0 })
-        .select("id, email, points")
-        .single() // Use single here as we expect one new row
+        .select("id, email, points, is_admin") // Select is_admin for new profile too
+        .single()
 
       if (createProfileError || !newProfile) {
         console.error("Error creating new profile:", createProfileError)
@@ -168,27 +169,25 @@ export async function addPoints(userId: string, amount: number, description: str
       .from("profiles")
       .select("points")
       .eq("id", userId)
-      .maybeSingle() // Changed to maybeSingle()
+      .maybeSingle()
 
     if (fetchError || !currentProfile) {
       console.error("Error fetching current points for adding:", fetchError)
       return { success: false, message: "Failed to fetch current points." }
     }
 
-    // Update user's points
     const { data: updatedProfile, error: updateError } = await supabase
       .from("profiles")
       .update({ points: currentProfile.points + amount })
       .eq("id", userId)
       .select("points")
-      .single() // This single() is fine as we are updating a specific row by ID
+      .single()
 
     if (updateError || !updatedProfile) {
       console.error("Error updating points:", updateError)
       return { success: false, message: "Failed to add points." }
     }
 
-    // Record transaction
     const { error: transactionError } = await supabase
       .from("point_transactions")
       .insert({ user_id: userId, type: "earn", amount, description })
@@ -211,7 +210,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
       .from("profiles")
       .select("points")
       .eq("id", userId)
-      .maybeSingle() // Changed to maybeSingle()
+      .maybeSingle()
 
     if (fetchError || !currentProfile) {
       console.error("Error fetching current points for redemption:", fetchError)
@@ -228,26 +227,221 @@ export async function redeemPoints(userId: string, amount: number, description: 
       .update({ points: currentProfile.points - amount })
       .eq("id", userId)
       .select("points")
-      .single() // This single() is fine as we are updating a specific row by ID
+      .single()
 
     if (updateError || !updatedProfile) {
       console.error("Error updating points for redemption:", updateError)
       return { success: false, message: "Failed to redeem points." }
     }
 
-    // Record transaction
-    const { error: transactionError } = await supabase
+    // Record transaction, but don't generate code yet. Admin will do that.
+    const { data: transactionData, error: transactionError } = await supabase
       .from("point_transactions")
       .insert({ user_id: userId, type: "redeem", amount: -amount, description })
+      .select("id") // Select the ID to link with reward_codes later
+      .single()
 
-    if (transactionError) {
+    if (transactionError || !transactionData) {
       console.error("Error recording redemption transaction:", transactionError)
       return { success: false, message: "Points redeemed, but failed to record transaction." }
     }
 
-    return { success: true, message: `${amount} points redeemed!`, newPoints: updatedProfile.points }
+    return {
+      success: true,
+      message: `${amount} points redeemed!`,
+      newPoints: updatedProfile.points,
+      transactionId: transactionData.id,
+    }
   } catch (error) {
     console.error("Unexpected error in redeemPoints:", error)
     return { success: false, message: "An unexpected error occurred during point redemption." }
+  }
+}
+
+// --- Admin-specific Server Actions ---
+
+// Helper to check if the current user is an admin
+async function isAdmin() {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+  if (userError || !user) return false
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single()
+
+  return !profileError && profile?.is_admin === true
+}
+
+export async function addPointsToUserByEmail(formData: FormData) {
+  if (!(await isAdmin())) {
+    return { success: false, message: "Unauthorized: Not an admin." }
+  }
+
+  const email = formData.get("email") as string
+  const amount = Number.parseInt(formData.get("amount") as string)
+  const description = formData.get("description") as string
+
+  if (!email || isNaN(amount) || amount <= 0) {
+    return { success: false, message: "Invalid input for adding points." }
+  }
+
+  try {
+    // Find the user's profile by email
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, points")
+      .eq("email", email)
+      .single()
+
+    if (profileError || !profile) {
+      console.error("Error finding user profile by email:", profileError)
+      return { success: false, message: "User not found." }
+    }
+
+    // Update user's points
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("profiles")
+      .update({ points: profile.points + amount })
+      .eq("id", profile.id)
+      .select("points")
+      .single()
+
+    if (updateError || !updatedProfile) {
+      console.error("Error updating points for user:", updateError)
+      return { success: false, message: "Failed to add points to user." }
+    }
+
+    // Record transaction
+    const { error: transactionError } = await supabase
+      .from("point_transactions")
+      .insert({ user_id: profile.id, type: "earn", amount, description })
+
+    if (transactionError) {
+      console.error("Error recording admin point transaction:", transactionError)
+      return { success: false, message: "Points added, but failed to record transaction." }
+    }
+
+    return {
+      success: true,
+      message: `Successfully added ${amount} points to ${email}. New total: ${updatedProfile.points}`,
+    }
+  } catch (error) {
+    console.error("Unexpected error in addPointsToUserByEmail:", error)
+    return { success: false, message: "An unexpected error occurred while adding points." }
+  }
+}
+
+export async function getUsersForAdminView() {
+  if (!(await isAdmin())) {
+    return { success: false, message: "Unauthorized: Not an admin.", users: [] }
+  }
+
+  try {
+    const { data: users, error } = await supabase
+      .from("profiles")
+      .select("id, email, points, is_admin")
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching users for admin view:", error)
+      return { success: false, message: "Failed to fetch users.", users: [] }
+    }
+
+    return { success: true, message: "Users fetched successfully.", users }
+  } catch (error) {
+    console.error("Unexpected error in getUsersForAdminView:", error)
+    return { success: false, message: "An unexpected error occurred.", users: [] }
+  }
+}
+
+export async function getAdminRedeemedRewards() {
+  if (!(await isAdmin())) {
+    return { success: false, message: "Unauthorized: Not an admin.", redeemedRewards: [] }
+  }
+
+  try {
+    const { data: redeemedRewards, error } = await supabase
+      .from("point_transactions")
+      .select(`
+        id,
+        user_id,
+        amount,
+        description,
+        created_at,
+        reward_code_id,
+        profiles (email),
+        reward_codes (code)
+      `)
+      .eq("type", "redeem")
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching redeemed rewards for admin:", error)
+      return { success: false, message: "Failed to fetch redeemed rewards.", redeemedRewards: [] }
+    }
+
+    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards }
+  } catch (error) {
+    console.error("Unexpected error in getAdminRedeemedRewards:", error)
+    return { success: false, message: "An unexpected error occurred." }
+  }
+}
+
+export async function generateRewardCodeForTransaction(transactionId: string) {
+  if (!(await isAdmin())) {
+    return { success: false, message: "Unauthorized: Not an admin." }
+  }
+
+  try {
+    // Check if a code already exists for this transaction
+    const { data: existingCode, error: existingCodeError } = await supabase
+      .from("reward_codes")
+      .select("code")
+      .eq("transaction_id", transactionId)
+      .single()
+
+    if (existingCodeError && existingCodeError.code !== "PGRST116") {
+      // PGRST116 means no rows found
+      console.error("Error checking existing reward code:", existingCodeError)
+      return { success: false, message: "Failed to check existing reward code." }
+    }
+
+    if (existingCode) {
+      return { success: true, message: "Reward code already generated for this transaction.", code: existingCode.code }
+    }
+
+    const newCode = nanoid(10).toUpperCase() // Generate a 10-character unique code
+
+    const { data: rewardCodeData, error: insertError } = await supabase
+      .from("reward_codes")
+      .insert({ transaction_id: transactionId, code: newCode })
+      .select("id, code")
+      .single()
+
+    if (insertError || !rewardCodeData) {
+      console.error("Error inserting new reward code:", insertError)
+      return { success: false, message: "Failed to generate reward code." }
+    }
+
+    // Link the generated code to the point_transaction
+    const { error: updateTransactionError } = await supabase
+      .from("point_transactions")
+      .update({ reward_code_id: rewardCodeData.id })
+      .eq("id", transactionId)
+
+    if (updateTransactionError) {
+      console.error("Error linking reward code to transaction:", updateTransactionError)
+      return { success: false, message: "Reward code generated, but failed to link to transaction." }
+    }
+
+    return { success: true, message: "Reward code generated successfully!", code: rewardCodeData.code }
+  } catch (error) {
+    console.error("Unexpected error in generateRewardCodeForTransaction:", error)
+    return { success: false, message: "An unexpected error occurred while generating reward code." }
   }
 }
