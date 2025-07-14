@@ -116,15 +116,31 @@ export async function getUserProfile() {
       return { success: false, message: "User not authenticated.", profile: null, activity: [] }
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("id, email, points")
       .eq("id", user.id)
-      .single()
+      .maybeSingle() // Changed from .single() to .maybeSingle()
 
-    if (profileError || !profile) {
+    if (profileError) {
       console.error("Error fetching user profile:", profileError)
       return { success: false, message: "Failed to load user profile.", profile: null, activity: [] }
+    }
+
+    // If profile doesn't exist, create it
+    if (!profile) {
+      console.log("Profile not found for user, creating new profile...")
+      const { data: newProfile, error: createProfileError } = await supabase
+        .from("profiles")
+        .insert({ id: user.id, email: user.email, points: 0 })
+        .select("id, email, points")
+        .single() // Use single here as we expect one new row
+
+      if (createProfileError || !newProfile) {
+        console.error("Error creating new profile:", createProfileError)
+        return { success: false, message: "Failed to create user profile.", profile: null, activity: [] }
+      }
+      profile = newProfile
     }
 
     const { data: activity, error: activityError } = await supabase
@@ -132,11 +148,10 @@ export async function getUserProfile() {
       .select("type, amount, description, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(5) // Fetch last 5 activities
+      .limit(5)
 
     if (activityError) {
       console.error("Error fetching point activity:", activityError)
-      // Still return profile even if activity fails
       return { success: true, message: "Profile loaded, but failed to load activity.", profile, activity: [] }
     }
 
@@ -149,15 +164,24 @@ export async function getUserProfile() {
 
 export async function addPoints(userId: string, amount: number, description: string) {
   try {
+    const { data: currentProfile, error: fetchError } = await supabase
+      .from("profiles")
+      .select("points")
+      .eq("id", userId)
+      .maybeSingle() // Changed to maybeSingle()
+
+    if (fetchError || !currentProfile) {
+      console.error("Error fetching current points for adding:", fetchError)
+      return { success: false, message: "Failed to fetch current points." }
+    }
+
     // Update user's points
     const { data: updatedProfile, error: updateError } = await supabase
       .from("profiles")
-      .update({
-        points: (await supabase.from("profiles").select("points").eq("id", userId).single()).data?.points + amount,
-      })
+      .update({ points: currentProfile.points + amount })
       .eq("id", userId)
       .select("points")
-      .single()
+      .single() // This single() is fine as we are updating a specific row by ID
 
     if (updateError || !updatedProfile) {
       console.error("Error updating points:", updateError)
@@ -171,7 +195,6 @@ export async function addPoints(userId: string, amount: number, description: str
 
     if (transactionError) {
       console.error("Error recording point transaction:", transactionError)
-      // Consider rolling back points update if transaction fails, or handle separately
       return { success: false, message: "Points added, but failed to record transaction." }
     }
 
@@ -188,7 +211,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
       .from("profiles")
       .select("points")
       .eq("id", userId)
-      .single()
+      .maybeSingle() // Changed to maybeSingle()
 
     if (fetchError || !currentProfile) {
       console.error("Error fetching current points for redemption:", fetchError)
@@ -205,7 +228,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
       .update({ points: currentProfile.points - amount })
       .eq("id", userId)
       .select("points")
-      .single()
+      .single() // This single() is fine as we are updating a specific row by ID
 
     if (updateError || !updatedProfile) {
       console.error("Error updating points for redemption:", updateError)
@@ -215,7 +238,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
     // Record transaction
     const { error: transactionError } = await supabase
       .from("point_transactions")
-      .insert({ user_id: userId, type: "redeem", amount: -amount, description }) // Store as negative for redemption
+      .insert({ user_id: userId, type: "redeem", amount: -amount, description })
 
     if (transactionError) {
       console.error("Error recording redemption transaction:", transactionError)
