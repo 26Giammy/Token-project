@@ -1,6 +1,8 @@
 "use client"
 
 import { Star, Gift, Coffee, Scissors, ShoppingBag, LogOut, Crown } from "lucide-react"
+import { signOut } from "@/app/actions" // Import the signOut action
+import { toast } from "sonner"
 
 interface DashboardProps {
   userName: string
@@ -39,6 +41,16 @@ const rewards = [
 ]
 
 export default function Dashboard({ userName, onLogout }: DashboardProps) {
+  const handleLogout = async () => {
+    const result = await signOut()
+    if (result.success) {
+      toast.success(result.message)
+      onLogout()
+    } else {
+      toast.error(result.message)
+    }
+  }
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -46,7 +58,7 @@ export default function Dashboard({ userName, onLogout }: DashboardProps) {
         <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-pink-400 rounded-xl flex items-center justify-center">
           <Crown className="w-5 h-5 text-white" />
         </div>
-        <button onClick={onLogout} className="p-2 hover:bg-white/50 rounded-xl transition-colors">
+        <button onClick={handleLogout} className="p-2 hover:bg-white/50 rounded-xl transition-colors">
           <LogOut className="w-5 h-5 text-gray-600" />
         </button>
       </header>

@@ -1,73 +1,95 @@
 "use server"
 
 import { Resend } from "resend"
-import { nanoid } from "nanoid"
-import bcrypt from "bcrypt"
-import { supabase } from "@/lib/supabase" // Import Supabase client
+import { supabase } from "@/lib/supabase" // Server-side Supabase client
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
 
-export async function sendVerificationEmail(email: string) {
+// This action is no longer needed for the new flow, but keeping it as a placeholder
+// if you still want to send custom emails for other purposes.
+export async function sendCustomEmail(toEmail: string, subject: string, htmlContent: string) {
   try {
-    const otp = nanoid(6).toUpperCase() // Generate a 6-character OTP
-    const hashedOtp = await bcrypt.hash(otp, 10) // Hash the OTP
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // OTP valid for 5 minutes, ISO string for Supabase
-
-    // Store OTP in Supabase
-    const { data, error } = await supabase
-      .from("otps")
-      .upsert({ email, otp_hash: hashedOtp, expires_at: expiresAt }, { onConflict: "email" })
-      .select()
-
-    if (error) {
-      console.error("Supabase error storing OTP:", error)
-      return { success: false, message: "Failed to store verification code. Please try again." }
-    }
-
     await resend.emails.send({
       from: RESEND_FROM_EMAIL,
-      to: email,
-      subject: "Your Loyalty App Verification Code",
-      html: `<p>Your verification code is: <strong>${otp}</strong>. It is valid for 5 minutes.</p>`,
+      to: toEmail,
+      subject: subject,
+      html: htmlContent,
     })
-
-    return { success: true, message: "Verification code sent successfully!" }
+    return { success: true, message: "Email sent successfully!" }
   } catch (error) {
-    console.error("Error sending verification email:", error)
-    return { success: false, message: "Failed to send verification code. Please try again." }
+    console.error("Error sending custom email:", error)
+    return { success: false, message: "Failed to send email." }
   }
 }
 
-export async function verifyOtp(email: string, userOtp: string) {
+export async function signUp(formData: FormData) {
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirmPassword") as string
+
+  if (password !== confirmPassword) {
+    return { success: false, message: "Passwords do not match." }
+  }
+
   try {
-    // Retrieve OTP from Supabase
-    const { data, error } = await supabase.from("otps").select("otp_hash, expires_at").eq("email", email).single()
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`, // Important for email verification
+      },
+    })
 
-    if (error || !data) {
-      console.error("Supabase error retrieving OTP:", error)
-      return { success: false, message: "No OTP found for this email or an error occurred." }
+    if (error) {
+      console.error("Supabase sign up error:", error)
+      return { success: false, message: error.message || "Failed to sign up. Please try again." }
     }
 
-    const { otp_hash, expires_at } = data
-
-    if (Date.now() > new Date(expires_at).getTime()) {
-      // Delete expired OTP from Supabase
-      await supabase.from("otps").delete().eq("email", email)
-      return { success: false, message: "OTP has expired. Please request a new one." }
+    if (data.user && !data.session) {
+      // User signed up but email verification is required
+      return { success: true, message: "Account created! Please check your email for a verification link." }
     }
 
-    const isMatch = await bcrypt.compare(userOtp, otp_hash)
-
-    if (isMatch) {
-      // OTP successfully used, delete it from Supabase
-      await supabase.from("otps").delete().eq("email", email)
-      return { success: true, message: "OTP verified successfully!" }
-    } else {
-      return { success: false, message: "Invalid OTP. Please try again." }
-    }
+    return { success: true, message: "Signed up successfully!" }
   } catch (error) {
-    console.error("Error verifying OTP:", error)
-    return { success: false, message: "An unexpected error occurred during OTP verification." }
+    console.error("Unexpected error during sign up:", error)
+    return { success: false, message: "An unexpected error occurred during sign up." }
+  }
+}
+
+export async function signIn(formData: FormData) {
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      console.error("Supabase sign in error:", error)
+      return { success: false, message: error.message || "Failed to sign in. Please check your credentials." }
+    }
+
+    return { success: true, message: "Signed in successfully!" }
+  } catch (error) {
+    console.error("Unexpected error during sign in:", error)
+    return { success: false, message: "An unexpected error occurred during sign in." }
+  }
+}
+
+export async function signOut() {
+  try {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error("Error signing out:", error)
+      return { success: false, message: "Failed to sign out." }
+    }
+    return { success: true, message: "Signed out successfully." }
+  } catch (error) {
+    console.error("Unexpected error during sign out:", error)
+    return { success: false, message: "An unexpected error occurred." }
   }
 }

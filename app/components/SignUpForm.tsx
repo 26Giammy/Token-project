@@ -1,33 +1,30 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { ArrowLeft, Mail, ArrowRight } from "lucide-react"
-import { toast } from "sonner" // Import toast
+import { ArrowLeft, UserPlus, ArrowRight } from "lucide-react"
+import { toast } from "sonner"
+import { signUp } from "@/app/actions"
 
-import { sendVerificationEmail } from "@/app/actions" // Import the server action
-
-interface EmailVerificationProps {
-  onEmailSubmit: (email: string) => void
+interface SignUpFormProps {
+  onSignUpSuccess: () => void
   onBack: () => void
+  onSignInClick: () => void
 }
 
-export default function EmailVerification({ onEmailSubmit, onBack }: EmailVerificationProps) {
-  const [email, setEmail] = useState("")
+export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!email) return
-
     setIsLoading(true)
-    const result = await sendVerificationEmail(email) // Call the server action
+    const formData = new FormData(e.currentTarget)
+    const result = await signUp(formData)
     setIsLoading(false)
 
     if (result.success) {
       toast.success(result.message)
-      onEmailSubmit(email)
+      onSignUpSuccess()
     } else {
       toast.error(result.message)
     }
@@ -35,37 +32,45 @@ export default function EmailVerification({ onEmailSubmit, onBack }: EmailVerifi
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
       <header className="px-6 py-6 flex items-center">
         <button onClick={onBack} className="p-2 hover:bg-white/50 rounded-xl transition-colors">
           <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-full max-w-sm mx-auto space-y-8">
-          {/* Icon */}
           <div className="flex justify-center">
             <div className="w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center">
-              <Mail className="w-8 h-8 text-white" />
+              <UserPlus className="w-8 h-8 text-white" />
             </div>
           </div>
 
-          {/* Title */}
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-gray-800">What's your email?</h1>
-            <p className="text-gray-600">We'll send you a verification code to get started</p>
+            <h1 className="text-2xl font-bold text-gray-800">Create your account</h1>
+            <p className="text-gray-600">Sign up to start earning rewards!</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email to get your code"
+                name="email"
+                placeholder="Email address"
+                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                required
+              />
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                required
+              />
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
                 className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
                 required
               />
@@ -73,22 +78,26 @@ export default function EmailVerification({ onEmailSubmit, onBack }: EmailVerifi
 
             <button
               type="submit"
-              disabled={!email || isLoading}
+              disabled={isLoading}
               className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-6 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  Send Code
+                  Sign Up
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Security Note */}
-          <p className="text-xs text-gray-500 text-center">We respect your privacy. Your email is secure with us.</p>
+          <p className="text-sm text-gray-600 text-center">
+            Already have an account?{" "}
+            <button onClick={onSignInClick} className="text-purple-600 hover:underline font-medium">
+              Sign In
+            </button>
+          </p>
         </div>
       </main>
     </div>
