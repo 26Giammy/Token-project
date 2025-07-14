@@ -387,7 +387,7 @@ export async function getAdminRedeemedRewards() {
         created_at,
         reward_code_id,
         profiles (email),
-        reward_codes (code)
+        reward_codes!point_transactions_reward_code_id_fkey (code) // Explicitly specify the foreign key
       `)
       .eq("type", "redeem")
       .order("created_at", { ascending: false })
