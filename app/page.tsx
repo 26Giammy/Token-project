@@ -9,7 +9,7 @@ import Dashboard from "./components/Dashboard"
 import AdminDashboard from "./components/AdminDashboard" // New import
 import { supabaseClient } from "@/lib/supabase-client"
 import { getUserProfile } from "./actions" // Import getUserProfile to check admin status
-import { toast } from "react-toastify" // Declare toast variable
+import { toast } from "sonner" // Declare toast variable
 
 const inter = Inter({ subsets: ["latin"] })
 
