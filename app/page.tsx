@@ -28,7 +28,9 @@ export default function LoyaltyApp() {
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 ${inter.className}`}>
+    <div
+      className={`min-h-screen bg-gradient-to-br from-page-gradient-start via-page-gradient-via to-page-gradient-end ${inter.className}`}
+    >
       {currentPage === "landing" && <LandingPage onStart={() => navigateToPage("email")} />}
       {currentPage === "email" && (
         <EmailVerification onEmailSubmit={handleEmailSubmit} onBack={() => navigateToPage("landing")} />

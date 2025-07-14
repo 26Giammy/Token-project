@@ -12,6 +12,18 @@
   }
 }
 
+:root {
+  --page-gradient-start: 270 100% 98%; /* soft lavender */
+  --page-gradient-via: 330 100% 98%; /* soft pink */
+  --page-gradient-end: 39 100% 98%; /* soft beige */
+}
+
+.dark {
+  --page-gradient-start: 240 5.9% 10%;
+  --page-gradient-via: 240 5.9% 10%;
+  --page-gradient-end: 240 5.9% 10%;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

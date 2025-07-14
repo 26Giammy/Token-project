@@ -4,6 +4,9 @@ import type React from "react"
 
 import { useState } from "react"
 import { ArrowLeft, Mail, ArrowRight } from "lucide-react"
+import { toast } from "sonner" // Import toast
+
+import { sendVerificationEmail } from "@/app/actions" // Import the server action
 
 interface EmailVerificationProps {
   onEmailSubmit: (email: string) => void
@@ -19,10 +22,15 @@ export default function EmailVerification({ onEmailSubmit, onBack }: EmailVerifi
     if (!email) return
 
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const result = await sendVerificationEmail(email) // Call the server action
     setIsLoading(false)
-    onEmailSubmit(email)
+
+    if (result.success) {
+      toast.success(result.message)
+      onEmailSubmit(email)
+    } else {
+      toast.error(result.message)
+    }
   }
 
   return (

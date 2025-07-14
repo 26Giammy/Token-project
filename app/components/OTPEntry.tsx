@@ -4,6 +4,9 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { ArrowLeft, Shield, RotateCcw } from "lucide-react"
+import { toast } from "sonner" // Import toast
+
+import { sendVerificationEmail, verifyOtp } from "@/app/actions" // Import server actions
 
 interface OTPEntryProps {
   email: string
@@ -15,6 +18,7 @@ interface OTPEntryProps {
 export default function OTPEntry({ email, onVerify, onBack, onResend }: OTPEntryProps) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""])
   const [isLoading, setIsLoading] = useState(false)
+  const [isResending, setIsResending] = useState(false)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
@@ -42,13 +46,35 @@ export default function OTPEntry({ email, onVerify, onBack, onResend }: OTPEntry
 
   const handleVerify = async () => {
     const code = otp.join("")
-    if (code.length !== 6) return
+    if (code.length !== 6) {
+      toast.error("Please enter the complete 6-digit code.")
+      return
+    }
 
     setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    const result = await verifyOtp(email, code) // Call the server action
     setIsLoading(false)
-    onVerify()
+
+    if (result.success) {
+      toast.success(result.message)
+      onVerify()
+    } else {
+      toast.error(result.message)
+    }
+  }
+
+  const handleResendCode = async () => {
+    setIsResending(true)
+    const result = await sendVerificationEmail(email)
+    setIsResending(false)
+
+    if (result.success) {
+      toast.success("New verification code sent!")
+      setOtp(["", "", "", "", "", ""]) // Clear OTP inputs
+      inputRefs.current[0]?.focus() // Focus first input
+    } else {
+      toast.error("Failed to resend code. Please try again.")
+    }
   }
 
   const isComplete = otp.every((digit) => digit !== "")
@@ -114,10 +140,15 @@ export default function OTPEntry({ email, onVerify, onBack, onResend }: OTPEntry
           {/* Resend */}
           <div className="text-center">
             <button
-              onClick={onResend}
-              className="text-purple-600 hover:text-purple-700 font-medium flex items-center gap-2 mx-auto transition-colors"
+              onClick={handleResendCode}
+              disabled={isResending}
+              className="text-purple-600 hover:text-purple-700 font-medium flex items-center gap-2 mx-auto transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RotateCcw className="w-4 h-4" />
+              {isResending ? (
+                <div className="w-4 h-4 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin"></div>
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
               Resend Code
             </button>
           </div>

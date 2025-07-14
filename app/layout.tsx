@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import { Toaster } from "sonner" // Import Toaster
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     "Join our loyalty program and earn points with every purchase. Unlock exclusive rewards and VIP experiences.",
   keywords: "loyalty program, rewards, points, small business, salon, retail, café",
   viewport: "width=device-width, initial-scale=1",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -21,7 +22,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <Toaster /> {/* Add Toaster component here */}
+      </body>
     </html>
   )
 }
