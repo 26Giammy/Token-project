@@ -111,7 +111,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
       return
     }
 
-    const result = await redeemPoints(userProfile.id, rewardPoints, `Redeemed ${rewardName}`)
+    const result = await redeemPoints(userProfile.id, rewardPoints, `Riscosso ${rewardName}`)
     if (result.success && result.newPoints !== undefined) {
       if (result.rewardCode) {
         toast.success(`${result.message}`, {
