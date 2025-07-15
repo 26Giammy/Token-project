@@ -7,7 +7,7 @@ import SignUpForm from "./components/SignUpForm"
 import SignInForm from "./components/SignInForm"
 import Dashboard from "./components/Dashboard"
 import AdminDashboard from "./components/AdminDashboard" // New import
-import { supabaseClient } from "@/lib/supabase-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 import { getUserProfile } from "./actions" // Import getUserProfile to check admin status
 import { toast } from "sonner" // Declare toast variable
 
@@ -22,6 +22,7 @@ export default function LoyaltyApp() {
 
   useEffect(() => {
     const checkSessionAndProfile = async () => {
+      const supabaseClient = getSupabaseClient()
       const {
         data: { session },
       } = await supabaseClient.auth.getSession()
@@ -44,7 +45,7 @@ export default function LoyaltyApp() {
     }
     checkSessionAndProfile()
 
-    const { data: authListener } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = getSupabaseClient().auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         const profileResult = await getUserProfile()
         if (profileResult.success && profileResult.profile) {
@@ -53,7 +54,7 @@ export default function LoyaltyApp() {
           setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
         } else {
           // Fallback if profile creation/fetch fails after sign-in
-          await supabaseClient.auth.signOut()
+          await getSupabaseClient().auth.signOut()
           setCurrentPage("landing")
           toast.error("Failed to load user profile after sign-in. Please try again.")
         }
@@ -85,7 +86,7 @@ export default function LoyaltyApp() {
       setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
     } else {
       // Should not happen often with maybeSingle fix, but as a fallback
-      await supabaseClient.auth.signOut()
+      await getSupabaseClient().auth.signOut()
       setCurrentPage("landing")
       toast.error("Failed to load user profile after sign-in. Please try again.")
     }

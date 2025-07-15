@@ -113,7 +113,20 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
 
     const result = await redeemPoints(userProfile.id, rewardPoints, `Redeemed ${rewardName}`)
     if (result.success && result.newPoints !== undefined) {
-      toast.success(result.message + " An admin will provide your reward code shortly.") // Added message for admin
+      if (result.rewardCode) {
+        toast.success(`${result.message}`, {
+          duration: 10000, // Show for 10 seconds
+          action: {
+            label: "Copy Code",
+            onClick: () => {
+              navigator.clipboard.writeText(result.rewardCode!)
+              toast.success("Code copied to clipboard!")
+            },
+          },
+        })
+      } else {
+        toast.success(result.message)
+      }
       setUserProfile((prev) => (prev ? { ...prev, points: result.newPoints } : null))
       // Re-fetch activity to show the new transaction
       const activityResult = await getUserProfile()

@@ -27,6 +27,7 @@ interface UserProfileAdmin {
 
 interface RedeemedRewardAdmin {
   id: string
+  code: string | null
   redeemed_at: string | null
   point_transactions: {
     id: string
@@ -297,6 +298,9 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         Redeemed on: {new Date(transaction.created_at).toLocaleString()}
                       </p>
                       <p className="text-sm text-gray-600">Points: {Math.abs(transaction.amount)}</p>
+                      {reward.code && (
+                        <p className="text-sm font-mono bg-gray-100 px-2 py-1 rounded mt-1">Code: {reward.code}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {isFulfilled ? (

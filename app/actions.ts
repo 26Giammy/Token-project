@@ -249,7 +249,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
     const { data: transactionData, error: transactionError } = await supabase
       .from("point_transactions")
       .insert({ user_id: userId, type: "redeem", amount: -amount, description })
-      .select("id") // Select the ID to link with reward_codes later
+      .select("id")
       .single()
 
     if (transactionError || !transactionData) {
@@ -257,15 +257,30 @@ export async function redeemPoints(userId: string, amount: number, description: 
       return { success: false, message: "Points redeemed, but failed to record transaction." }
     }
 
-    // Create an entry in reward_codes for fulfillment tracking
-    const { error: rewardCodeInsertError } = await supabase
-      .from("reward_codes")
-      .insert({ transaction_id: transactionData.id, redeemed_at: null }) // redeemed_at is null initially
+    // Generate a unique reward code
+    const { data: codeData, error: codeGenerationError } = await supabase.rpc("generate_reward_code")
+
+    if (codeGenerationError || !codeData) {
+      console.error("Error generating reward code:", codeGenerationError)
+      return {
+        success: false,
+        message: "Points redeemed, but failed to generate reward code. Please contact support.",
+        newPoints: updatedProfile.points,
+        transactionId: transactionData.id,
+      }
+    }
+
+    // Create an entry in reward_codes with the generated code
+    const { error: rewardCodeInsertError } = await supabase.from("reward_codes").insert({
+      transaction_id: transactionData.id,
+      code: codeData,
+      redeemed_at: null,
+    })
 
     if (rewardCodeInsertError) {
       console.error("Error creating reward_codes entry:", rewardCodeInsertError)
       return {
-        success: false, // Changed from true to false
+        success: false,
         message: "Points redeemed, but failed to create reward fulfillment record. Please contact support.",
         newPoints: updatedProfile.points,
         transactionId: transactionData.id,
@@ -274,9 +289,10 @@ export async function redeemPoints(userId: string, amount: number, description: 
 
     return {
       success: true,
-      message: `${amount} points redeemed! An admin will fulfill your reward shortly.`,
+      message: `${amount} points redeemed! Your reward code is: ${codeData}`,
       newPoints: updatedProfile.points,
       transactionId: transactionData.id,
+      rewardCode: codeData,
     }
   } catch (error) {
     console.error("Unexpected error in redeemPoints:", error)
@@ -396,6 +412,7 @@ export async function getAdminRedeemedRewards() {
       .from("reward_codes")
       .select(`
         id,
+        code,
         redeemed_at,
         point_transactions (
           id,
@@ -406,17 +423,14 @@ export async function getAdminRedeemedRewards() {
           profiles (email)
         )
       `)
-      .order("created_at", { foreignTable: "point_transactions", ascending: false }) // Order by transaction creation date
+      .order("created_at", { foreignTable: "point_transactions", ascending: false })
 
     if (error) {
       console.error("Error fetching redeemed rewards for admin:", error)
       return { success: false, message: "Failed to fetch redeemed rewards.", redeemedRewards: [] }
     }
 
-    // Filter to ensure only 'redeem' type transactions are included, as reward_codes are only for redemptions
-    const filteredRewards = redeemedRewards.filter((reward) => reward.point_transactions?.type === "redeem")
-
-    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards: filteredRewards }
+    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards }
   } catch (error) {
     console.error("Unexpected error in getAdminRedeemedRewards:", error)
     return { success: false, message: "An unexpected error occurred." }
