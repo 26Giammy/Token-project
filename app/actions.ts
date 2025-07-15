@@ -2,7 +2,6 @@
 
 import { Resend } from "resend"
 import { supabase } from "@/lib/supabase" // Server-side Supabase client
-import { nanoid } from "nanoid" // For generating unique reward codes
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"
@@ -36,7 +35,7 @@ export async function signUp(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "https://test-token-g.vercel.app/"}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`,
       },
     })
 
@@ -246,7 +245,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
       return { success: false, message: "Failed to redeem points." }
     }
 
-    // Record transaction, but don't generate code yet. Admin will do that.
+    // Record transaction
     const { data: transactionData, error: transactionError } = await supabase
       .from("point_transactions")
       .insert({ user_id: userId, type: "redeem", amount: -amount, description })
@@ -258,9 +257,24 @@ export async function redeemPoints(userId: string, amount: number, description: 
       return { success: false, message: "Points redeemed, but failed to record transaction." }
     }
 
+    // Create an entry in reward_codes for fulfillment tracking
+    const { error: rewardCodeInsertError } = await supabase
+      .from("reward_codes")
+      .insert({ transaction_id: transactionData.id, redeemed_at: null }) // redeemed_at is null initially
+
+    if (rewardCodeInsertError) {
+      console.error("Error creating reward_codes entry:", rewardCodeInsertError)
+      return {
+        success: true,
+        message: "Points redeemed, but failed to create reward fulfillment record. Please contact support.",
+        newPoints: updatedProfile.points,
+        transactionId: transactionData.id,
+      }
+    }
+
     return {
       success: true,
-      message: `${amount} points redeemed!`,
+      message: `${amount} points redeemed! An admin will fulfill your reward shortly.`,
       newPoints: updatedProfile.points,
       transactionId: transactionData.id,
     }
@@ -377,83 +391,59 @@ export async function getAdminRedeemedRewards() {
   }
 
   try {
+    // Query reward_codes and embed related point_transactions and profiles
     const { data: redeemedRewards, error } = await supabase
-      .from("point_transactions")
+      .from("reward_codes")
       .select(`
         id,
-        user_id,
-        amount,
-        description,
-        created_at,
-        reward_code_id,
-        profiles (email),
-        reward_codes!point_transactions_reward_code_id_fkey (code) // Explicitly specify the foreign key
+        redeemed_at,
+        point_transactions (
+          id,
+          user_id,
+          amount,
+          description,
+          created_at,
+          profiles (email)
+        )
       `)
-      .eq("type", "redeem")
-      .order("created_at", { ascending: false })
+      .order("created_at", { foreignTable: "point_transactions", ascending: false }) // Order by transaction creation date
 
     if (error) {
       console.error("Error fetching redeemed rewards for admin:", error)
       return { success: false, message: "Failed to fetch redeemed rewards.", redeemedRewards: [] }
     }
 
-    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards }
+    // Filter to ensure only 'redeem' type transactions are included, as reward_codes are only for redemptions
+    const filteredRewards = redeemedRewards.filter((reward) => reward.point_transactions?.type === "redeem")
+
+    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards: filteredRewards }
   } catch (error) {
     console.error("Unexpected error in getAdminRedeemedRewards:", error)
     return { success: false, message: "An unexpected error occurred." }
   }
 }
 
-export async function generateRewardCodeForTransaction(transactionId: string) {
+export async function fulfillReward(transactionId: string) {
   if (!(await isAdmin())) {
     return { success: false, message: "Unauthorized: Not an admin." }
   }
 
   try {
-    // Check if a code already exists for this transaction
-    const { data: existingCode, error: existingCodeError } = await supabase
+    const { data, error } = await supabase
       .from("reward_codes")
-      .select("code")
+      .update({ redeemed_at: new Date().toISOString() })
       .eq("transaction_id", transactionId)
+      .select("id")
       .single()
 
-    if (existingCodeError && existingCodeError.code !== "PGRST116") {
-      // PGRST116 means no rows found
-      console.error("Error checking existing reward code:", existingCodeError)
-      return { success: false, message: "Failed to check existing reward code." }
+    if (error || !data) {
+      console.error("Error fulfilling reward:", error)
+      return { success: false, message: "Failed to fulfill reward." }
     }
 
-    if (existingCode) {
-      return { success: true, message: "Reward code already generated for this transaction.", code: existingCode.code }
-    }
-
-    const newCode = nanoid(10).toUpperCase() // Generate a 10-character unique code
-
-    const { data: rewardCodeData, error: insertError } = await supabase
-      .from("reward_codes")
-      .insert({ transaction_id: transactionId, code: newCode })
-      .select("id, code")
-      .single()
-
-    if (insertError || !rewardCodeData) {
-      console.error("Error inserting new reward code:", insertError)
-      return { success: false, message: "Failed to generate reward code." }
-    }
-
-    // Link the generated code to the point_transaction
-    const { error: updateTransactionError } = await supabase
-      .from("point_transactions")
-      .update({ reward_code_id: rewardCodeData.id })
-      .eq("id", transactionId)
-
-    if (updateTransactionError) {
-      console.error("Error linking reward code to transaction:", updateTransactionError)
-      return { success: false, message: "Reward code generated, but failed to link to transaction." }
-    }
-
-    return { success: true, message: "Reward code generated successfully!", code: rewardCodeData.code }
+    return { success: true, message: "Reward marked as fulfilled!" }
   } catch (error) {
-    console.error("Unexpected error in generateRewardCodeForTransaction:", error)
-    return { success: false, message: "An unexpected error occurred while generating reward code." }
+    console.error("Unexpected error in fulfillReward:", error)
+    return { success: false, message: "An unexpected error occurred while fulfilling the reward." }
   }
 }
