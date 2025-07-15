@@ -37,7 +37,7 @@ export default function LoyaltyApp() {
           // If session exists but profile fails to load, log out
           await supabaseClient.auth.signOut()
           setCurrentPage("landing")
-          toast.error("Failed to load user profile. Please sign in again.")
+          toast.error("Impossibile caricare i dati dell'utente. Per favore riprovare")
         }
       } else {
         setCurrentPage("landing")
@@ -56,7 +56,7 @@ export default function LoyaltyApp() {
           // Fallback if profile creation/fetch fails after sign-in
           await getSupabaseClient().auth.signOut()
           setCurrentPage("landing")
-          toast.error("Failed to load user profile after sign-in. Please try again.")
+          toast.error("Impossibile caricare i dati dell'utente. Per favore riprovare")
         }
       } else if (event === "SIGNED_OUT") {
         setCurrentPage("landing")
@@ -88,7 +88,7 @@ export default function LoyaltyApp() {
       // Should not happen often with maybeSingle fix, but as a fallback
       await getSupabaseClient().auth.signOut()
       setCurrentPage("landing")
-      toast.error("Failed to load user profile after sign-in. Please try again.")
+      toast.error("Impossibile caricare i dati dell'utente. Per favore accedere nuovamente")
     }
   }
 

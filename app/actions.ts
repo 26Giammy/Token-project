@@ -14,10 +14,10 @@ export async function sendCustomEmail(toEmail: string, subject: string, htmlCont
       subject: subject,
       html: htmlContent,
     })
-    return { success: true, message: "Email sent successfully!" }
+    return { success: true, message: "Email mandata con successo!" }
   } catch (error) {
     console.error("Error sending custom email:", error)
-    return { success: false, message: "Failed to send email." }
+    return { success: false, message: "Impossibile mandare email" }
   }
 }
 
@@ -27,7 +27,7 @@ export async function signUp(formData: FormData) {
   const confirmPassword = formData.get("confirmPassword") as string
 
   if (password !== confirmPassword) {
-    return { success: false, message: "Passwords do not match." }
+    return { success: false, message: "Le Password non coincidono" }
   }
 
   try {
@@ -35,13 +35,13 @@ export async function signUp(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "https://test-token-g.vercel.app/"}/auth/callback`,
       },
     })
 
     if (error) {
-      console.error("Supabase sign up error:", error)
-      return { success: false, message: error.message || "Failed to sign up. Please try again." }
+      console.error("Supabase errore di accesso:", error)
+      return { success: false, message: error.message || "Impossibile accedere. Per favore riprovare" }
     }
 
     if (data.user) {
@@ -53,12 +53,12 @@ export async function signUp(formData: FormData) {
       if (profileError) {
         console.error("Supabase profile creation error:", profileError)
         // Optionally, you might want to delete the user from auth.users if profile creation fails
-        return { success: false, message: "Account created, but failed to set up profile. Please contact support." }
+        return { success: false, message: "Account creato ma errore nell'inizializzazione, Contattare il supporto admin" }
       }
     }
 
     if (data.user && !data.session) {
-      return { success: true, message: "Account created! Please check your email for a verification link." }
+      return { success: true, message: "Account creato! Controllare la cartella email per il link di verifica" }
     }
 
     return { success: true, message: "Signed up successfully!" }
@@ -80,7 +80,7 @@ export async function signIn(formData: FormData) {
 
     if (error) {
       console.error("Supabase sign in error:", error)
-      return { success: false, message: error.message || "Failed to sign in. Please check your credentials." }
+      return { success: false, message: error.message || "Impossibile accedere. Ricontrollare le credenziali di accesso" }
     }
 
     return { success: true, message: "Signed in successfully!" }
@@ -97,7 +97,7 @@ export async function signOut() {
       console.error("Error signing out:", error)
       return { success: false, message: "Failed to sign out." }
     }
-    return { success: true, message: "Signed out successfully." }
+    return { success: true, message: "Sign out con successo" }
   } catch (error) {
     console.error("Unexpected error during sign out:", error)
     return { success: false, message: "An unexpected error occurred." }
@@ -116,7 +116,7 @@ export async function getUserProfile() {
 
     if (userError || !user) {
       console.error("Error getting user:", userError)
-      return { success: false, message: "User not authenticated.", profile: null, activity: [] }
+      return { success: false, message: "User non autenticato.", profile: null, activity: [] }
     }
 
     let { data: profile, error: profileError } = await supabase
@@ -135,7 +135,7 @@ export async function getUserProfile() {
 
     // If profile doesn't exist, create it
     if (!profile) {
-      console.log("Profile not found for user, creating new profile...")
+      console.log("Profilo non trovato, creazione nuovo profilo...")
       const { data: newProfile, error: createProfileError } = await supabase
         .from("profiles")
         .insert({ id: user.id, email: user.email, points: 0 })
@@ -147,7 +147,7 @@ export async function getUserProfile() {
 
       if (createProfileError || !newProfile) {
         console.error("Error creating new profile:", createProfileError)
-        return { success: false, message: "Failed to create user profile.", profile: null, activity: [] }
+        return { success: false, message: "Impossiile creare nuovo profilo utente", profile: null, activity: [] }
       }
       profile = newProfile
     }
@@ -167,7 +167,7 @@ export async function getUserProfile() {
       return { success: true, message: "Profile loaded, but failed to load activity.", profile, activity: [] }
     }
 
-    return { success: true, message: "Profile and activity loaded.", profile, activity }
+    return { success: true, message: "Profilo e attività caricati!", profile, activity }
   } catch (error) {
     console.error("Unexpected error in getUserProfile:", error)
     return { success: false, message: "An unexpected error occurred.", profile: null, activity: [] }
@@ -229,7 +229,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
     }
 
     if (currentProfile.points < amount) {
-      return { success: false, message: "Not enough points to redeem this reward." }
+      return { success: false, message: "Non hai abbastanza punti per questa ricompensa" }
     }
 
     // Update user's points
@@ -281,7 +281,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
       console.error("Error creating reward_codes entry:", rewardCodeInsertError)
       return {
         success: false,
-        message: "Points redeemed, but failed to create reward fulfillment record. Please contact support.",
+        message: "Punti riscattati ma è impossibile tracciare la transazione, per favore contattare supporto admin",
         newPoints: updatedProfile.points,
         transactionId: transactionData.id,
       }
@@ -289,7 +289,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
 
     return {
       success: true,
-      message: `${amount} points redeemed! Your reward code is: ${codeData}`,
+      message: `${amount} punti riscossi! Il tuo codice è: ${codeData}`,
       newPoints: updatedProfile.points,
       transactionId: transactionData.id,
       rewardCode: codeData,
@@ -321,7 +321,7 @@ async function isAdmin() {
 
 export async function addPointsToUserByEmail(formData: FormData) {
   if (!(await isAdmin())) {
-    return { success: false, message: "Unauthorized: Not an admin." }
+    return { success: false, message: "Non autorizzato, non admin" }
   }
 
   const email = formData.get("email") as string
@@ -329,7 +329,7 @@ export async function addPointsToUserByEmail(formData: FormData) {
   const description = formData.get("description") as string
 
   if (!email || isNaN(amount) || amount <= 0) {
-    return { success: false, message: "Invalid input for adding points." }
+    return { success: false, message: "Input non valido per aggiungere punti." }
   }
 
   try {
@@ -341,8 +341,8 @@ export async function addPointsToUserByEmail(formData: FormData) {
       .single()
 
     if (profileError || !profile) {
-      console.error("Error finding user profile by email:", profileError)
-      return { success: false, message: "User not found." }
+      console.error("Errore nella ricerca via email", profileError)
+      return { success: false, message: "Utente non trovato." }
     }
 
     // Update user's points
@@ -355,7 +355,7 @@ export async function addPointsToUserByEmail(formData: FormData) {
 
     if (updateError || !updatedProfile) {
       console.error("Error updating points:", updateError)
-      return { success: false, message: "Failed to add points to user." }
+      return { success: false, message: "Impossibile aggiungere punti all'utente." }
     }
 
     // Record transaction
@@ -370,7 +370,7 @@ export async function addPointsToUserByEmail(formData: FormData) {
 
     return {
       success: true,
-      message: `Successfully added ${amount} points to ${email}. New total: ${updatedProfile.points}`,
+      message: `Aggiunti ${amount} punti a ${email}. Nuovo totale: ${updatedProfile.points}`,
     }
   } catch (error) {
     console.error("Unexpected error in addPointsToUserByEmail:", error)
@@ -380,7 +380,7 @@ export async function addPointsToUserByEmail(formData: FormData) {
 
 export async function getUsersForAdminView() {
   if (!(await isAdmin())) {
-    return { success: false, message: "Unauthorized: Not an admin.", users: [] }
+    return { success: false, message: "Non autorizzato, non admin", users: [] }
   }
 
   try {
@@ -394,7 +394,7 @@ export async function getUsersForAdminView() {
       return { success: false, message: "Failed to fetch users.", users: [] }
     }
 
-    return { success: true, message: "Users fetched successfully.", users }
+    return { success: true, message: "Utente inizializzato con successo", users }
   } catch (error) {
     console.error("Unexpected error in getUsersForAdminView:", error)
     return { success: false, message: "An unexpected error occurred.", users: [] }
@@ -403,7 +403,7 @@ export async function getUsersForAdminView() {
 
 export async function getAdminRedeemedRewards() {
   if (!(await isAdmin())) {
-    return { success: false, message: "Unauthorized: Not an admin.", redeemedRewards: [] }
+    return { success: false, message: "Non autorizzato, non admin", redeemedRewards: [] }
   }
 
   try {
@@ -430,7 +430,7 @@ export async function getAdminRedeemedRewards() {
       return { success: false, message: "Failed to fetch redeemed rewards.", redeemedRewards: [] }
     }
 
-    return { success: true, message: "Redeemed rewards fetched successfully.", redeemedRewards }
+    return { success: true, message: "Ricompense riscattate con successo!!", redeemedRewards }
   } catch (error) {
     console.error("Unexpected error in getAdminRedeemedRewards:", error)
     return { success: false, message: "An unexpected error occurred." }
