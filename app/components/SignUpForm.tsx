@@ -56,7 +56,7 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
               <input
                 type="email"
                 name="email"
-                placeholder="Email address"
+                placeholder="Indirizzo email"
                 className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
                 required
               />
@@ -70,7 +70,7 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
               <input
                 type="password"
                 name="confirmPassword"
-                placeholder="Confirm Password"
+                placeholder="Conferma Password"
                 className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
                 required
               />
@@ -85,7 +85,7 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  Sign Up
+                  Registati
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -93,9 +93,9 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
           </form>
 
           <p className="text-sm text-gray-600 text-center">
-            Already have an account?{" "}
+            Hai già un account?{" "}
             <button onClick={onSignInClick} className="text-purple-600 hover:underline font-medium">
-              Sign In
+              Accedi
             </button>
           </p>
         </div>
