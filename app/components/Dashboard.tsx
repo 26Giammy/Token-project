@@ -83,7 +83,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
         setUserProfile(result.profile)
         setRecentActivity(result.activity || [])
       } else {
-        toast.error(result.message || "Failed to load dashboard data.")
+        toast.error(result.message || "impossibile caricare dati Dashboard.")
         onLogout() // Force logout if profile cannot be loaded
       }
       setIsLoading(false)
@@ -103,11 +103,11 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
 
   const handleRedeem = async (rewardPoints: number, rewardName: string) => {
     if (!userProfile) {
-      toast.error("User profile not loaded.")
+      toast.error("Profilo utente non caricato.")
       return
     }
     if (userProfile.points < rewardPoints) {
-      toast.error("Not enough points to redeem this reward.")
+      toast.error("Non hai abbastanza punti per riscattare questa ricompensa.")
       return
     }
 
@@ -117,10 +117,10 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
         toast.success(`${result.message}`, {
           duration: 10000, // Show for 10 seconds
           action: {
-            label: "Copy Code",
+            label: "Copia codice",
             onClick: () => {
               navigator.clipboard.writeText(result.rewardCode!)
-              toast.success("Code copied to clipboard!")
+              toast.success("Codice copiato!")
             },
           },
         })
@@ -134,7 +134,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
         setRecentActivity(activityResult.activity)
       }
     } else {
-      toast.error(result.message || "Failed to redeem reward.")
+      toast.error(result.message || "Impossibile riscattare ricompensa.")
     }
   }
 
@@ -162,15 +162,15 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
       <main className="px-6 pb-8 space-y-8">
         {/* Welcome */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome back, {userName}!</h1>
-          <p className="text-gray-600">Ready to earn more rewards?</p>
+          <h1 className="text-3xl font-bold text-gray-800">Bentornato, {userName}!</h1>
+          <p className="text-gray-600">Pronto a guadagnare altre ricompense?</p>
         </div>
 
         {/* Points Card */}
         <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Your Points</p>
+              <p className="text-purple-100 text-sm font-medium">I tuoi Punti</p>
               <div className="flex items-center gap-2 mt-1">
                 <Star className="w-6 h-6 text-yellow-300 fill-current" />
                 <span className="text-3xl font-bold">{userProfile?.points ?? 0}</span>
@@ -191,7 +191,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
 
         {/* Rewards Section */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800">Your Rewards</h2>
+          <h2 className="text-xl font-bold text-gray-800">Le Tue Ricompense</h2>
 
           <div className="grid gap-4">
             {rewards.map((reward) => {
@@ -235,7 +235,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
 
         {/* Activity Section */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-800">Recent Activity</h2>
+          <h2 className="text-xl font-bold text-gray-800">Attività recenti</h2>
 
           <div className="space-y-3">
             {recentActivity.length > 0 ? (
@@ -259,7 +259,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
                 </div>
               ))
             ) : (
-              <p className="text-center text-gray-500">No recent activity.</p>
+              <p className="text-center text-gray-500">Nessuna attività recente.</p>
             )}
           </div>
         </div>

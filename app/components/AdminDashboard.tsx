@@ -292,10 +292,10 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   >
                     <div>
                       <p className="font-medium text-gray-800">
-                        {transaction.profiles?.email || "Unknown User"} redeemed: {transaction.description}
+                        {transaction.profiles?.email || "Unknown User"} riscattato: {transaction.description}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Redeemed on: {new Date(transaction.created_at).toLocaleString()}
+                        Riscatatto il: {new Date(transaction.created_at).toLocaleString()}
                       </p>
                       <p className="text-sm text-gray-600">Points: {Math.abs(transaction.amount)}</p>
                       {reward.code && (
@@ -312,7 +312,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           onClick={() => handleFulfillReward(transaction.id)}
                           className="bg-purple-500 text-white py-2 px-4 rounded-full text-sm font-medium hover:bg-purple-600 transition-colors"
                         >
-                          Mark as Fulfilled
+                          Segna come completato
                         </button>
                       )}
                     </div>

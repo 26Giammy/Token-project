@@ -56,7 +56,7 @@ export default function SignInForm({ onSignInSuccess, onBack, onSignUpClick }: S
               <input
                 type="email"
                 name="email"
-                placeholder="Email address"
+                placeholder="Indirizzo email"
                 className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
                 required
               />
@@ -78,7 +78,7 @@ export default function SignInForm({ onSignInSuccess, onBack, onSignUpClick }: S
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  Sign In
+                  Accedi
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -86,7 +86,7 @@ export default function SignInForm({ onSignInSuccess, onBack, onSignUpClick }: S
           </form>
 
           <p className="text-sm text-gray-600 text-center">
-            Don't have an account?{" "}
+            Non hai un account?{" "}
             <button onClick={onSignUpClick} className="text-purple-600 hover:underline font-medium">
               Sign Up
             </button>

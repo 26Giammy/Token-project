@@ -31,7 +31,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
             {/* Main Content */}
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl font-bold text-gray-800 leading-tight">
-                Join Our
+                Unisciti al nostro
                 <span className="block bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Loyalty Program
                 </span>
