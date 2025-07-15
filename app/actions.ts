@@ -61,7 +61,7 @@ export async function signUp(formData: FormData) {
       return { success: true, message: "Account creato! Controllare la cartella email per il link di verifica" }
     }
 
-    return { success: true, message: "Signed up successfully!" }
+    return { success: true, message: "Ti sei reigstato!!" }
   } catch (error) {
     console.error("Unexpected error during sign up:", error)
     return { success: false, message: "An unexpected error occurred during sign up." }
@@ -83,10 +83,10 @@ export async function signIn(formData: FormData) {
       return { success: false, message: error.message || "Impossibile accedere. Ricontrollare le credenziali di accesso" }
     }
 
-    return { success: true, message: "Signed in successfully!" }
+    return { success: true, message: "Hai effettuato l'accesso con successo!" }
   } catch (error) {
     console.error("Unexpected error during sign in:", error)
-    return { success: false, message: "An unexpected error occurred during sign in." }
+    return { success: false, message: "Un errore inaspettato si è verificato durante l'accesso, riprovare." }
   }
 }
 
@@ -208,7 +208,7 @@ export async function addPoints(userId: string, amount: number, description: str
       return { success: false, message: "Points added, but failed to record transaction." }
     }
 
-    return { success: true, message: `${amount} points added!`, newPoints: updatedProfile.points }
+    return { success: true, message: `${amount} punti aggiunti!`, newPoints: updatedProfile.points }
   } catch (error) {
     console.error("Unexpected error in addPoints:", error)
     return { success: false, message: "An unexpected error occurred while adding points." }
