@@ -126,12 +126,12 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Add Points Section */}
       <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-8 border border-white/50">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <DollarSign className="w-6 h-6 text-green-600" /> Add Points to User
+          <DollarSign className="w-6 h-6 text-green-600" /> {"Aggiungi punti ad user"}
         </h2>
         <form onSubmit={handleAddPointsSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              User Email
+              Email user 
             </label>
             <input
               type="email"
@@ -145,7 +145,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </div>
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-              Points Amount
+              {"Numero punti"}
             </label>
             <input
               type="number"

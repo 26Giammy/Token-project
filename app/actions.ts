@@ -36,7 +36,7 @@ export async function signUp(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000"}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_VERCEL_URL || "https://test-token-g.vercel.app/"}/auth/callback`,
       },
     })
 
