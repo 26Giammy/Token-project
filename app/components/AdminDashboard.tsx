@@ -56,7 +56,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     if (result.success && result.users) {
       setUsers(result.users)
     } else {
-      toast.error(result.message || "Failed to load users.")
+      toast.error(result.message || "Impossibile caricare gli users.")
     }
     setLoadingUsers(false)
   }
@@ -67,7 +67,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     if (result.success && result.redeemedRewards) {
       setRedeemedRewards(result.redeemedRewards)
     } else {
-      toast.error(result.message || "Failed to load redeemed rewards.")
+      toast.error(result.message || "Impossibile caricare i codici per ricompense.")
     }
     setLoadingRewards(false)
   }
@@ -93,7 +93,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       setPointsDescription("")
       fetchUsers() // Refresh user list
     } else {
-      toast.error(result.message || "Failed to add points.")
+      toast.error(result.message || "Impossibile aggiungere punti.")
     }
     setAddPointsLoading(false)
   }
@@ -104,7 +104,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       toast.success(result.message)
       fetchRedeemedRewards() // Refresh redeemed rewards list
     } else {
-      toast.error(result.message || "Failed to fulfill reward.")
+      toast.error(result.message || "Impossibile soddisfare la richiesta.")
     }
   }
 
@@ -143,7 +143,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       {/* Add Points Section */}
       <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-8 border border-white/50">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <DollarSign className="w-6 h-6 text-green-600" /> Add Points to User
+          <DollarSign className="w-6 h-6 text-green-600" /> Aggiungi punti ad user
         </h2>
         <form onSubmit={handleAddPointsSubmit} className="space-y-4">
           <div>
@@ -162,7 +162,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </div>
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-              Points Amount
+              Numero di punti
             </label>
             <input
               type="number"
@@ -177,14 +177,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </div>
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
+              Descizione
             </label>
             <input
               type="text"
               id="description"
               value={pointsDescription}
               onChange={(e) => setPointsDescription(e.target.value)}
-              placeholder="e.g., 'Purchase at Cafe X'"
+              placeholder="e.g., 'Acquisto di prodotto X'"
               className="w-full px-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
               required
             />
@@ -209,7 +209,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-8 border border-white/50">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <User className="w-6 h-6 text-blue-600" /> All Users
+            <User className="w-6 h-6 text-blue-600" /> Tutti gli users
           </span>
           <button onClick={fetchUsers} className="p-2 hover:bg-gray-100 rounded-full">
             <RefreshCw className="w-5 h-5 text-gray-600" />
@@ -219,7 +219,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <Input
             type="text"
-            placeholder="Search users by email or ID..."
+            placeholder="Cerca user via email or ID..."
             value={userSearchTerm}
             onChange={(e) => setUserSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
@@ -251,7 +251,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 ) : (
                   <tr>
                     <td colSpan={3} className="py-4 text-center text-gray-500">
-                      No users found.
+                      Nessun user trovato
                     </td>
                   </tr>
                 )}
@@ -265,7 +265,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
         <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <Gift className="w-6 h-6 text-pink-600" /> Redeemed Rewards
+            <Gift className="w-6 h-6 text-pink-600" /> Ricompense riscattate
           </span>
           <button onClick={fetchRedeemedRewards} className="p-2 hover:bg-gray-100 rounded-full">
             <RefreshCw className="w-5 h-5 text-gray-600" />

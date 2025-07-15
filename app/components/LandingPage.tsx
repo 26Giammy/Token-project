@@ -38,7 +38,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
               </h1>
 
               <p className="text-lg text-gray-600 leading-relaxed">
-                Earn points every time you buy and unlock exclusive rewards
+                {"Guadagni punti e vinci ricompense esclusive!"}
               </p>
             </div>
           </div>
@@ -48,7 +48,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
             onClick={onStart}
             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
           >
-            Start Your Journey
+            {"Inizia il tuo viaggio"}
             <ArrowRight className="w-5 h-5" />
           </button>
 
@@ -56,11 +56,11 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           <div className="flex items-center justify-center gap-6 pt-8 text-sm text-gray-500">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              Secure
+              {"Sicuro"}
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              Instant
+              {"Instantaneo"}
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-purple-400 rounded-full"></div>

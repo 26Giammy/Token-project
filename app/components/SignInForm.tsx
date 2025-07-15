@@ -47,8 +47,8 @@ export default function SignInForm({ onSignInSuccess, onBack, onSignUpClick }: S
           </div>
 
           <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-gray-800">Welcome back!</h1>
-            <p className="text-gray-600">Sign in to access your rewards.</p>
+            <h1 className="text-2xl font-bold text-gray-800">{"Bentornato!"}</h1>
+            <p className="text-gray-600">{"Accedi per ricevere le tue ricompense"}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
