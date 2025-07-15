@@ -13,7 +13,7 @@
 }
 
 :root {
-  --page-gradient-start: 270 100% 98%; /* soft lavender */
+  --page-gradient-start: 180 100% 98%; /* soft lavender */
   --page-gradient-via: 330 100% 98%; /* soft pink */
   --page-gradient-end: 39 100% 98%; /* soft beige */
 }

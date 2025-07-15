@@ -265,7 +265,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
     if (rewardCodeInsertError) {
       console.error("Error creating reward_codes entry:", rewardCodeInsertError)
       return {
-        success: true,
+        success: false, // Changed from true to false
         message: "Points redeemed, but failed to create reward fulfillment record. Please contact support.",
         newPoints: updatedProfile.points,
         transactionId: transactionData.id,
@@ -338,7 +338,7 @@ export async function addPointsToUserByEmail(formData: FormData) {
       .single()
 
     if (updateError || !updatedProfile) {
-      console.error("Error updating points for user:", updateError)
+      console.error("Error updating points:", updateError)
       return { success: false, message: "Failed to add points to user." }
     }
 
