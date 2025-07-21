@@ -22,12 +22,13 @@ export async function sendCustomEmail(toEmail: string, subject: string, htmlCont
 }
 
 export async function signUp(formData: FormData) {
+  const name = formData.get("name") as string
   const email = formData.get("email") as string
   const password = formData.get("password") as string
   const confirmPassword = formData.get("confirmPassword") as string
 
   if (password !== confirmPassword) {
-    return { success: false, message: "Le Password non coincidono" }
+    return { success: false, message: "Le Password non coincidono." }
   }
 
   try {
@@ -45,15 +46,18 @@ export async function signUp(formData: FormData) {
     }
 
     if (data.user) {
-      // Create a profile entry for the new user
+      // Create a profile entry for the new user, including the name
       const { error: profileError } = await supabase
         .from("profiles")
-        .insert({ id: data.user.id, email: data.user.email, points: 0 }) // Initialize points to 0
+        .insert({ id: data.user.id, email: data.user.email, points: 0, name: name }) // Initialize points to 0 and add name
 
       if (profileError) {
         console.error("Supabase profile creation error:", profileError)
         // Optionally, you might want to delete the user from auth.users if profile creation fails
-        return { success: false, message: "Account creato ma errore nell'inizializzazione, Contattare il supporto admin" }
+        return {
+          success: false,
+          message: "Account creato ma errore nell'inizializzazione, Contattare il supporto admin",
+        }
       }
     }
 
@@ -80,7 +84,10 @@ export async function signIn(formData: FormData) {
 
     if (error) {
       console.error("Supabase sign in error:", error)
-      return { success: false, message: error.message || "Impossibile accedere. Ricontrollare le credenziali di accesso" }
+      return {
+        success: false,
+        message: error.message || "Impossibile accedere. Ricontrollare le credenziali di accesso",
+      }
     }
 
     return { success: true, message: "Hai effettuato l'accesso con successo!" }
@@ -121,7 +128,7 @@ export async function getUserProfile() {
 
     let { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, email, points, is_admin") // Include is_admin
+      .select("id, email, points, is_admin, name") // Include is_admin and name
       .eq("id", user.id)
       .maybeSingle()
 
@@ -138,8 +145,8 @@ export async function getUserProfile() {
       console.log("Profilo non trovato, creazione nuovo profilo...")
       const { data: newProfile, error: createProfileError } = await supabase
         .from("profiles")
-        .insert({ id: user.id, email: user.email, points: 0 })
-        .select("id, email, points, is_admin") // Select is_admin for new profile too
+        .insert({ id: user.id, email: user.email, points: 0, name: user.email?.split("@")[0] || "User" }) // Default name if not provided
+        .select("id, email, points, is_admin, name") // Select is_admin and name for new profile too
         .single()
 
       console.log("getUserProfile: new profile data", newProfile)
@@ -229,7 +236,7 @@ export async function redeemPoints(userId: string, amount: number, description: 
     }
 
     if (currentProfile.points < amount) {
-      return { success: false, message: "Non hai abbastanza punti per questa ricompensa" }
+      return { success: false, message: "Non hai abbastanza punti per riscattare questa ricompensa" }
     }
 
     // Update user's points
@@ -386,7 +393,7 @@ export async function getUsersForAdminView() {
   try {
     const { data: users, error } = await supabase
       .from("profiles")
-      .select("id, email, points, is_admin")
+      .select("id, email, points, is_admin, name") // Include name
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -420,7 +427,7 @@ export async function getAdminRedeemedRewards() {
           amount,
           description,
           created_at,
-          profiles (email)
+          profiles (email, name)
         )
       `)
       .order("created_at", { foreignTable: "point_transactions", ascending: false })

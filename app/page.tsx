@@ -17,7 +17,7 @@ export default function LoyaltyApp() {
   const [currentPage, setCurrentPage] = useState<"landing" | "signup" | "signin" | "dashboard" | "admin-dashboard">(
     "landing",
   )
-  const [userName, setUserName] = useState("User")
+  const [userName, setUserName] = useState("User") // This will now be the actual name or a fallback
   const [isAdmin, setIsAdmin] = useState(false) // New state for admin status
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function LoyaltyApp() {
       if (session) {
         const profileResult = await getUserProfile()
         if (profileResult.success && profileResult.profile) {
-          setUserName(profileResult.profile.email?.split("@")[0] || "User")
+          setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
           setIsAdmin(profileResult.profile.is_admin)
           setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
         } else {
@@ -49,7 +49,7 @@ export default function LoyaltyApp() {
       if (event === "SIGNED_IN" && session) {
         const profileResult = await getUserProfile()
         if (profileResult.success && profileResult.profile) {
-          setUserName(profileResult.profile.email?.split("@")[0] || "User")
+          setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
           setIsAdmin(profileResult.profile.is_admin)
           setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
         } else {
@@ -81,7 +81,7 @@ export default function LoyaltyApp() {
     // After successful sign-in, re-check profile to determine dashboard or admin-dashboard
     const profileResult = await getUserProfile()
     if (profileResult.success && profileResult.profile) {
-      setUserName(profileResult.profile.email?.split("@")[0] || "User")
+      setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
       setIsAdmin(profileResult.profile.is_admin)
       setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
     } else {

@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { useEffect, useState } from "react"
 
 interface DashboardProps {
-  userName: string
+  userName: string // This will now be the actual name or a fallback
   onLogout: () => void
   isAdmin: boolean // New prop to indicate if the user is an admin
 }
@@ -16,6 +16,7 @@ interface UserProfile {
   email: string
   points: number
   is_admin: boolean // Include is_admin in the type
+  name: string // Add name to UserProfile
 }
 
 interface PointActivity {
@@ -162,7 +163,7 @@ export default function Dashboard({ userName, onLogout, isAdmin }: DashboardProp
       <main className="px-6 pb-8 space-y-8">
         {/* Welcome */}
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-800">Bentornato, {userName}!</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Bentornato, {userProfile?.name || userName}!</h1>
           <p className="text-gray-600">Pronto a guadagnare altre ricompense?</p>
         </div>
 

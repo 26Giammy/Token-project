@@ -54,6 +54,13 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <input
+                type="text"
+                name="name"
+                placeholder="Nome"
+                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                required
+              />
+              <input
                 type="email"
                 name="email"
                 placeholder="Indirizzo email"
