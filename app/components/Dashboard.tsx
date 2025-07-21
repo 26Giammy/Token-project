@@ -7,20 +7,22 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { LogOut, Gift, History, QrCode, User, Crown } from "lucide-react"
-import { signOut, redeemPoints, getUserProfile } from "@/app/actions"
 import { toast } from "sonner"
+import { signOut, redeemPoints, getUserProfile } from "@/app/actions"
+import { useRouter } from "next/navigation"
+import { Loader2, LogOut, Gift, History, User, Crown, Sparkles, TrendingUp, Award } from "lucide-react"
 import { motion } from "framer-motion"
 
 interface UserProfile {
@@ -39,51 +41,82 @@ interface PointTransaction {
 }
 
 interface DashboardProps {
-  user: UserProfile
-  onSignOut: () => void
+  initialUser: UserProfile | null
+  initialActivity: PointTransaction[] | null
 }
 
-export default function Dashboard({ user: initialUser, onSignOut }: DashboardProps) {
-  const [user, setUser] = useState<UserProfile>(initialUser)
-  const [activity, setActivity] = useState<PointTransaction[]>([])
-  const [rewardCode, setRewardCode] = useState("")
+export function Dashboard({ initialUser, initialActivity }: DashboardProps) {
+  const router = useRouter()
+  const [user, setUser] = useState<UserProfile | null>(initialUser)
+  const [activity, setActivity] = useState<PointTransaction[]>(initialActivity || [])
+  const [redeemAmount, setRedeemAmount] = useState<number>(0)
+  const [redeemDescription, setRedeemDescription] = useState<string>("")
   const [isRedeeming, setIsRedeeming] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const fetchUserProfileAndActivity = async () => {
-    const result = await getUserProfile()
-    if (result.success && result.profile) {
-      setUser(result.profile)
-      setActivity(result.activity || [])
-    } else {
-      toast.error(result.message || "Errore nel caricamento del profilo utente.")
-      onSignOut() // Force sign out if profile cannot be loaded
-    }
-  }
-
   useEffect(() => {
-    fetchUserProfileAndActivity()
-    const interval = setInterval(fetchUserProfileAndActivity, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
+    const fetchProfile = async () => {
+      const result = await getUserProfile()
+      if (result.success && result.profile) {
+        setUser(result.profile)
+        setActivity(result.activity || [])
+      } else {
+        toast.error(result.message || "Impossibile caricare il profilo utente.")
+        router.push("/")
+      }
+      setIsLoading(false)
+    }
 
-  const handleRedeemPoints = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsRedeeming(true)
-    const amountToRedeem = 100 // Example: 100 points per reward
-    const description = `Riscatto premio con codice: ${rewardCode}`
+    if (!initialUser) {
+      fetchProfile()
+    } else {
+      setIsLoading(false)
+    }
+  }, [initialUser, router])
 
-    const result = await redeemPoints(user.id, amountToRedeem, description)
-
+  const handleSignOut = async () => {
+    const result = await signOut()
     if (result.success) {
       toast.success(result.message)
-      setRewardCode("")
-      setIsDialogOpen(false)
-      fetchUserProfileAndActivity() // Refresh user points and activity
+      router.push("/")
     } else {
       toast.error(result.message)
     }
+  }
+
+  const handleRedeemPoints = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) {
+      toast.error("Utente non autenticato.")
+      return
+    }
+    if (redeemAmount <= 0 || !redeemDescription) {
+      toast.error("Inserisci un importo valido e una descrizione per il riscatto.")
+      return
+    }
+    if (user.points < redeemAmount) {
+      toast.error("Punti insufficienti per riscattare questa ricompensa.")
+      return
+    }
+
+    setIsRedeeming(true)
+    const result = await redeemPoints(user.id, redeemAmount, redeemDescription)
     setIsRedeeming(false)
+
+    if (result.success) {
+      toast.success(result.message)
+      setUser((prevUser) => (prevUser ? { ...prevUser, points: result.newPoints || prevUser.points } : null))
+      setRedeemAmount(0)
+      setRedeemDescription("")
+      setIsDialogOpen(false)
+      const updatedProfile = await getUserProfile()
+      if (updatedProfile.success && updatedProfile.activity) {
+        setActivity(updatedProfile.activity)
+      }
+    } else {
+      toast.error(result.message)
+    }
   }
 
   const formatDateTime = (isoString: string) => {
@@ -97,116 +130,209 @@ export default function Dashboard({ user: initialUser, onSignOut }: DashboardPro
     })
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-600">Caricamento dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 sm:p-6 lg:p-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-4xl mx-auto"
-      >
-        {/* Header */}
-        <Card className="mb-6 bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
-          <CardContent className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6">
-            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
-              <Avatar className="w-16 h-16 border-2 border-purple-400 shadow-md">
-                <AvatarImage src="/placeholder-user.jpg" alt="Avatar utente" />
-                <AvatarFallback className="bg-purple-100 text-purple-600 text-xl font-semibold">
-                  {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">Ciao, {user.name || user.email}!</h2>
-                <p className="text-gray-600">Benvenuto nella tua dashboard fedeltà.</p>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur-md shadow-sm">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
+              <Sparkles className="h-5 w-5 text-white" />
             </div>
-            <div className="flex space-x-3">
-              {user.is_admin && (
-                <Button
-                  variant="outline"
-                  className="bg-yellow-500 text-white hover:bg-yellow-600 hover:text-white shadow-md"
-                  onClick={() => (window.location.href = "/admin-dashboard")}
-                >
-                  <Crown className="w-5 h-5 mr-2" /> Admin
-                </Button>
-              )}
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              LoyaltyApp
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-sm text-gray-600">Ciao,</span>
+              <span className="font-medium text-gray-900">{user.name || user.email}</span>
+            </div>
+            {user.is_admin && (
               <Button
                 variant="outline"
-                className="bg-red-500 text-white hover:bg-red-600 hover:text-white shadow-md"
-                onClick={async () => {
-                  await signOut()
-                  onSignOut()
-                }}
+                size="sm"
+                className="bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500"
+                onClick={() => router.push("/admin")}
               >
-                <LogOut className="w-5 h-5 mr-2" /> Esci
+                <Crown className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Admin</span>
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Esci</span>
+            </Button>
+          </div>
+        </div>
+      </header>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Points Card */}
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        {/* Welcome Section */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+            <Avatar className="w-16 h-16 border-4 border-white shadow-lg">
+              <AvatarImage src="/placeholder-user.jpg" alt="Avatar utente" />
+              <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold">
+                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
+                Benvenuto, {user.name || user.email}!
+              </h1>
+              <p className="text-gray-600">Ecco il tuo riepilogo fedeltà di oggi</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="lg:col-span-1"
+            transition={{ delay: 0.1 }}
           >
-            <Card className="h-full bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Punti Totali</CardTitle>
-                <User className="w-4 h-4 text-gray-500" />
+                <CardTitle className="text-sm font-medium opacity-90">Punti Totali</CardTitle>
+                <Award className="w-4 h-4 opacity-90" />
               </CardHeader>
               <CardContent>
-                <div className="text-4xl font-bold text-purple-600">{user.points}</div>
-                <p className="text-xs text-gray-500 mt-1">Guadagna più punti per sbloccare premi!</p>
+                <div className="text-3xl font-bold">{user.points}</div>
+                <p className="text-xs opacity-90 mt-1">Continua così!</p>
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Redeem Rewards Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-2"
+            transition={{ delay: 0.2 }}
           >
-            <Card className="h-full bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
+            <Card className="border-0 shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Riscatta Premi</CardTitle>
-                <Gift className="w-4 h-4 text-gray-500" />
+                <CardTitle className="text-sm font-medium text-gray-700">Transazioni</CardTitle>
+                <TrendingUp className="w-4 h-4 text-gray-500" />
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-gray-800 mb-4">Hai {user.points} punti disponibili.</p>
+                <div className="text-2xl font-bold text-gray-900">{activity.length}</div>
+                <p className="text-xs text-gray-500 mt-1">Attività totali</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+            className="md:col-span-2 lg:col-span-1"
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Status</CardTitle>
+                <User className="w-4 h-4 text-gray-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <Badge variant={user.is_admin ? "default" : "secondary"} className="text-xs">
+                    {user.is_admin ? "Admin" : "Membro"}
+                  </Badge>
+                  {user.points >= 1000 && (
+                    <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">
+                      VIP
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Redeem Points */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="lg:col-span-2"
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <Gift className="w-5 h-5 text-purple-600" />
+                  Riscatta Premi
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center mb-6">
+                  <p className="text-2xl font-bold text-gray-900 mb-2">Hai {user.points} punti disponibili</p>
+                  <p className="text-gray-600">Trasforma i tuoi punti in premi fantastici!</p>
+                </div>
+
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white shadow-md">
-                      Riscatta un Premio
+                    <Button className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
+                      <Gift className="w-4 h-4 mr-2" />
+                      Riscatta Ora
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg shadow-xl">
+                  <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Riscatta un Premio</DialogTitle>
-                      <DialogDescription>Inserisci il codice del premio per riscattare i tuoi punti.</DialogDescription>
+                      <DialogTitle>Riscatta i tuoi punti</DialogTitle>
+                      <DialogDescription>Inserisci i dettagli per riscattare i tuoi punti fedeltà</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleRedeemPoints} className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="rewardCode" className="text-right">
-                          Codice
-                        </Label>
+                    <form onSubmit={handleRedeemPoints} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="redeem-amount">Punti da riscattare</Label>
                         <Input
-                          id="rewardCode"
-                          value={rewardCode}
-                          onChange={(e) => setRewardCode(e.target.value)}
-                          className="col-span-3"
-                          placeholder="Es. REWARD123"
+                          id="redeem-amount"
+                          type="number"
+                          value={redeemAmount}
+                          onChange={(e) => setRedeemAmount(Number(e.target.value))}
+                          placeholder="Es. 100"
+                          min="1"
+                          max={user.points}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="redeem-description">Descrizione premio</Label>
+                        <Input
+                          id="redeem-description"
+                          type="text"
+                          value={redeemDescription}
+                          onChange={(e) => setRedeemDescription(e.target.value)}
+                          placeholder="Es. Buono sconto 10€"
                           required
                         />
                       </div>
                       <DialogFooter>
-                        <Button type="submit" disabled={isRedeeming || !rewardCode}>
-                          {isRedeeming ? "Riscattando..." : "Riscatta Ora"}
+                        <Button type="submit" disabled={isRedeeming} className="w-full">
+                          {isRedeeming ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Riscatto in corso...
+                            </>
+                          ) : (
+                            "Conferma Riscatto"
+                          )}
                         </Button>
                       </DialogFooter>
                     </form>
@@ -216,65 +342,44 @@ export default function Dashboard({ user: initialUser, onSignOut }: DashboardPro
             </Card>
           </motion.div>
 
-          {/* Recent Activity Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="lg:col-span-3"
-          >
-            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Attività Recente</CardTitle>
-                <History className="w-4 h-4 text-gray-500" />
+          {/* Recent Activity */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <History className="w-5 h-5 text-purple-600" />
+                  Attività Recente
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {activity.length > 0 ? (
-                  <ScrollArea className="h-[200px] pr-4">
+                {activity.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Nessuna attività recente</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[300px] pr-4">
                     <div className="space-y-4">
                       {activity.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <p className="text-sm font-medium text-gray-800">{item.description}</p>
-                            <p className="text-xs text-gray-500">{formatDateTime(item.created_at)}</p>
+                        <div key={index} className="flex items-start justify-between p-3 rounded-lg bg-gray-50">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 text-sm">{item.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{formatDateTime(item.created_at)}</p>
                           </div>
-                          <p className={`text-sm font-bold ${item.type === "add" ? "text-green-600" : "text-red-600"}`}>
+                          <Badge variant={item.type === "add" ? "default" : "destructive"} className="ml-2 text-xs">
                             {item.type === "add" ? "+" : "-"}
-                            {item.amount} Punti
-                          </p>
+                            {item.amount}
+                          </Badge>
                         </div>
                       ))}
                     </div>
                   </ScrollArea>
-                ) : (
-                  <p className="text-center text-gray-500 py-4">Nessuna attività recente.</p>
                 )}
               </CardContent>
             </Card>
           </motion.div>
-
-          {/* QR Code Card (Placeholder) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="lg:col-span-3"
-          >
-            <Card className="bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Scansiona QR Code</CardTitle>
-                <QrCode className="w-4 h-4 text-gray-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center h-32 bg-gray-100 rounded-md border border-dashed border-gray-300 text-gray-500">
-                  <QrCode className="w-8 h-8 mb-2" />
-                  <p className="text-sm">Funzionalità di scansione QR in arrivo!</p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
-      </motion.div>
+      </main>
     </div>
   )
 }

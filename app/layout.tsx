@@ -2,17 +2,18 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { Toaster } from "sonner" // Import Toaster
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Loyalty Program - Earn Rewards",
-  description:
-    "Join our loyalty program and earn points with every purchase. Unlock exclusive rewards and VIP experiences.",
-  keywords: "loyalty program, rewards, points, small business, salon, retail, café",
+  title: "LoyaltyApp - Programma Fedeltà",
+  description: "Trasforma la tua fedeltà in premi con il nostro programma fedeltà innovativo",
+  keywords: ["fedeltà", "premi", "punti", "loyalty", "rewards"],
+  authors: [{ name: "LoyaltyApp Team" }],
   viewport: "width=device-width, initial-scale=1",
-  generator: "v0.dev",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
@@ -21,10 +22,22 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="it" suppressHydrationWarning>
       <body className={inter.className}>
-        {children}
-        <Toaster /> {/* Add Toaster component here */}
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "white",
+                color: "black",
+                border: "1px solid #e5e7eb",
+              },
+            }}
+          />
+        </ThemeProvider>
       </body>
     </html>
   )

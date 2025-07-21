@@ -2,153 +2,143 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
-import { motion } from "framer-motion"
+import { EyeIcon, EyeOffIcon, Mail, Lock } from "lucide-react"
+import { toast } from "sonner"
 import { signIn } from "@/app/actions"
-import { toast } from "sonner" // Corretto l'import di toast
+import { motion } from "framer-motion"
 
 interface SignInFormProps {
-  onSignInSuccess: () => void
-  onBack: () => void
+  onClose: () => void
   onSignUpClick: () => void
 }
 
-export default function SignInForm({ onSignInSuccess, onBack, onSignUpClick }: SignInFormProps) {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+export function SignInForm({ onClose, onSignUpClick }: SignInFormProps) {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  })
   const [showPassword, setShowPassword] = useState(false)
-  const [message, setMessage] = useState("")
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMessage("")
-    setIsSuccess(false)
-    setIsLoading(true)
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
 
-    const formData = new FormData(e.target as HTMLFormElement)
-    const result = await signIn(formData)
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
 
-    if (result.success) {
-      setMessage(result.message)
-      setIsSuccess(true)
-      toast.success(result.message)
-      setTimeout(onSignInSuccess, 1000)
-    } else {
-      setMessage(result.message)
-      setIsSuccess(false)
-      toast.error(result.message)
-    }
-    setIsLoading(false)
+    const formDataObj = new FormData()
+    formDataObj.append("email", formData.email)
+    formDataObj.append("password", formData.password)
+
+    startTransition(async () => {
+      const result = await signIn(formDataObj)
+      if (result.success) {
+        toast.success(result.message)
+        onClose()
+      } else {
+        toast.error(result.message)
+      }
+    })
+  }
+
+  const inputVariants = {
+    initial: { y: 10, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-md relative"
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="absolute -top-12 left-0 text-gray-700 hover:text-purple-600 transition-colors duration-200"
-          aria-label="Torna indietro"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </Button>
-        <Card className="w-full bg-white shadow-lg rounded-lg">
-          <CardHeader className="text-center space-y-2">
-            <CardTitle className="text-3xl font-bold text-gray-900">Accedi al Tuo Account</CardTitle>
-            <CardDescription className="text-gray-600">
-              Bentornato! Accedi per continuare il tuo viaggio di premi.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="mario.rossi@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="La tua password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-              </div>
-              {message && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex items-center gap-2 text-sm ${isSuccess ? "text-green-600" : "text-red-600"}`}
-                >
-                  {isSuccess ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {message}
-                </motion.div>
-              )}
-              <Button
-                type="submit"
-                className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition-colors duration-200 shadow-md"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Accesso...
-                  </span>
-                ) : (
-                  "Accedi"
-                )}
-              </Button>
-            </form>
-            <div className="text-center text-sm text-gray-600">
-              Non hai un account?{" "}
-              <Button
-                variant="link"
-                onClick={onSignUpClick}
-                className="p-0 h-auto text-purple-600 hover:text-purple-700 transition-colors duration-200"
-              >
-                Registrati
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <motion.form
+      initial="initial"
+      animate="animate"
+      variants={{
+        initial: { opacity: 0, scale: 0.95 },
+        animate: { opacity: 1, scale: 1, transition: { staggerChildren: 0.07, delayChildren: 0.1 } },
+      }}
+      onSubmit={handleSubmit}
+      className="space-y-6 p-1"
+    >
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+          Email
+        </Label>
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="email"
+            type="email"
+            placeholder="mario.rossi@example.com"
+            value={formData.email}
+            onChange={(e) => handleInputChange("email", e.target.value)}
+            className="pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+          />
+        </div>
       </motion.div>
-    </div>
+
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+          Password
+        </Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="La tua password"
+            value={formData.password}
+            onChange={(e) => handleInputChange("password", e.target.value)}
+            className="pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 py-1 hover:bg-transparent"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? (
+              <EyeOffIcon className="h-4 w-4 text-gray-400" />
+            ) : (
+              <EyeIcon className="h-4 w-4 text-gray-400" />
+            )}
+          </Button>
+        </div>
+      </motion.div>
+
+      <motion.div variants={inputVariants} className="space-y-4">
+        <Button
+          type="submit"
+          className="w-full h-11 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          disabled={isPending}
+        >
+          {isPending ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Accesso in corso...
+            </div>
+          ) : (
+            "Accedi"
+          )}
+        </Button>
+
+        <div className="text-center text-sm text-gray-600">
+          Non hai un account?{" "}
+          <Button
+            variant="link"
+            type="button"
+            onClick={onSignUpClick}
+            className="p-0 h-auto text-purple-600 hover:text-purple-700 font-medium"
+          >
+            Registrati qui
+          </Button>
+        </div>
+      </motion.div>
+    </motion.form>
   )
 }

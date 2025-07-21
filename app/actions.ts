@@ -5,11 +5,16 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 export async function signUp(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const name = formData.get("name") as string
   const email = formData.get("email") as string
   const password = formData.get("password") as string
+  const confirmPassword = formData.get("confirmPassword") as string
+
+  if (password !== confirmPassword) {
+    return { success: false, message: "Le password non corrispondono." }
+  }
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -24,21 +29,21 @@ export async function signUp(formData: FormData) {
     return { success: false, message: error.message || "Errore durante la registrazione." }
   }
 
-  // Inserisci il nome nella tabella dei profili
   if (data.user) {
     const { error: profileError } = await supabase.from("profiles").upsert(
       {
         id: data.user.id,
         name: name,
-        email: email, // Salva anche l'email nel profilo per coerenza
+        email: email,
+        points: 0,
+        is_admin: false,
       },
       { onConflict: "id" },
     )
 
     if (profileError) {
       console.error("Errore durante l'inserimento del profilo:", profileError.message)
-      // Potresti voler gestire questo errore in modo diverso, ad esempio eliminando l'utente appena creato
-      return { success: false, message: profileError.message || "Errore durante la creazione del profilo utente." }
+      return { success: false, message: "Errore durante la creazione del profilo utente." }
     }
   }
 
@@ -47,7 +52,7 @@ export async function signUp(formData: FormData) {
 }
 
 export async function signIn(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -67,7 +72,7 @@ export async function signIn(formData: FormData) {
 }
 
 export async function signOut() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { error } = await supabase.auth.signOut()
 
   if (error) {
@@ -79,127 +84,251 @@ export async function signOut() {
   redirect("/")
 }
 
-export async function getCurrentUser() {
-  const supabase = createClient()
+export async function getUserProfile() {
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return null
+    return { success: false, message: "Utente non autenticato." }
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("name, email, points, is_admin")
+    .select("id, email, points, is_admin, name")
     .eq("id", user.id)
-    .single()
-
-  if (profileError) {
-    console.error("Errore nel recupero del profilo:", profileError.message)
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.email, // Fallback al nome utente se il profilo non è disponibile
-      points: 0,
-      isAdmin: false,
-    }
-  }
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: profile?.name || user.email,
-    points: profile?.points || 0,
-    isAdmin: profile?.is_admin || false,
-  }
-}
-
-export async function addPoints(userId: string, points: number) {
-  const supabase = createClient()
-  const { data: profile, error: fetchError } = await supabase
-    .from("profiles")
-    .select("points")
-    .eq("id", userId)
-    .single()
-
-  if (fetchError || !profile) {
-    console.error("Errore nel recupero dei punti utente:", fetchError?.message)
-    return { success: false, message: "Utente non trovato o errore nel recupero dei punti." }
-  }
-
-  const newPoints = profile.points + points
-  const { error: updateError } = await supabase.from("profiles").update({ points: newPoints }).eq("id", userId)
-
-  if (updateError) {
-    console.error("Errore nell'aggiornamento dei punti:", updateError.message)
-    return { success: false, message: "Errore nell'aggiornamento dei punti." }
-  }
-
-  revalidatePath("/dashboard")
-  return { success: true, message: `Aggiunti ${points} punti all'utente.` }
-}
-
-export async function redeemReward(userId: string, rewardCode: string) {
-  const supabase = createClient()
-
-  // 1. Verifica l'esistenza e la validità del codice premio
-  const { data: reward, error: rewardError } = await supabase
-    .from("reward_codes")
-    .select("id, points_cost, is_redeemed")
-    .eq("code", rewardCode)
-    .single()
-
-  if (rewardError || !reward) {
-    console.error("Errore nel recupero del codice premio:", rewardError?.message)
-    return { success: false, message: "Codice premio non valido o non trovato." }
-  }
-
-  if (reward.is_redeemed) {
-    return { success: false, message: "Questo codice premio è già stato riscattato." }
-  }
-
-  // 2. Recupera i punti dell'utente
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("points")
-    .eq("id", userId)
-    .single()
+    .maybeSingle()
 
   if (profileError || !profile) {
-    console.error("Errore nel recupero del profilo utente:", profileError?.message)
-    return { success: false, message: "Errore nel recupero dei punti utente." }
+    return { success: false, message: profileError?.message || "Profilo non trovato." }
   }
 
-  // 3. Controlla se l'utente ha abbastanza punti
-  if (profile.points < reward.points_cost) {
-    return { success: false, message: "Punti insufficienti per riscattare questo premio." }
+  const { data: activity, error: activityError } = await supabase
+    .from("point_transactions")
+    .select("type, amount, description, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(10)
+
+  if (activityError) {
+    console.error("Errore nel recupero dell'attività:", activityError)
   }
 
-  // 4. Aggiorna i punti dell'utente e segna il codice come riscattato in una transazione
-  const { error: transactionError } = await supabase.rpc("redeem_reward_transaction", {
-    p_user_id: userId,
-    p_reward_code_id: reward.id,
-    p_points_cost: reward.points_cost,
-  })
-
-  if (transactionError) {
-    console.error("Errore durante il riscatto del premio:", transactionError.message)
-    return { success: false, message: transactionError.message || "Errore durante il riscatto del premio." }
-  }
-
-  revalidatePath("/dashboard")
-  return { success: true, message: `Premio riscattato con successo! Hai speso ${reward.points_cost} punti.` }
+  return { success: true, profile, activity: activity || [] }
 }
 
-export async function generateRewardCode(pointsCost: number) {
-  const supabase = createClient()
-  const { data, error } = await supabase.rpc("generate_reward_code", { p_points_cost: pointsCost })
+export async function redeemPoints(userId: string, amount: number, description: string) {
+  const supabase = await createClient()
 
-  if (error) {
-    console.error("Errore nella generazione del codice premio:", error.message)
-    return { success: false, message: error.message || "Errore nella generazione del codice premio." }
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("points")
+    .eq("id", userId)
+    .maybeSingle()
+
+  if (profileError || !profile) {
+    return { success: false, message: "Profilo utente non trovato." }
   }
 
-  return { success: true, message: "Codice premio generato con successo!", code: data }
+  if (profile.points < amount) {
+    return { success: false, message: "Punti insufficienti per riscattare questa ricompensa." }
+  }
+
+  const { data: newPointsData, error: pointsError } = await supabase.rpc("deduct_points", {
+    user_id_param: userId,
+    points_to_deduct: amount,
+    description_param: description,
+  })
+
+  if (pointsError) {
+    return { success: false, message: pointsError.message }
+  }
+
+  const { error: rewardCodeInsertError } = await supabase.from("reward_codes").insert({
+    user_id: userId,
+    point_transaction_id: newPointsData?.transaction_id,
+    code: "PENDING",
+  })
+
+  if (rewardCodeInsertError) {
+    console.error("Errore nell'inserimento del codice ricompensa:", rewardCodeInsertError)
+  }
+
+  revalidatePath("/")
+  return { success: true, message: "Ricompensa riscattata con successo!", newPoints: newPointsData?.new_points }
+}
+
+export async function getUsersForAdminView() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (profileError || !profile || !profile.is_admin) {
+    return { success: false, message: "Accesso non autorizzato." }
+  }
+
+  const { data: users, error } = await supabase
+    .from("profiles")
+    .select("id, email, points, is_admin, name")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  return { success: true, users }
+}
+
+export async function addPointsToUserByEmail(formData: FormData) {
+  const email = formData.get("email") as string
+  const amount = Number(formData.get("amount"))
+  const description = formData.get("description") as string
+
+  if (!email || isNaN(amount) || amount <= 0 || !description) {
+    return { success: false, message: "Input non valido per l'aggiunta di punti." }
+  }
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authUserError,
+  } = await supabase.auth.getUser()
+
+  if (authUserError || !user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { data: adminProfile, error: adminProfileError } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (adminProfileError || !adminProfile || !adminProfile.is_admin) {
+    return { success: false, message: "Non autorizzato: solo gli amministratori possono aggiungere punti." }
+  }
+
+  const { data: targetProfile, error: targetProfileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle()
+
+  if (targetProfileError || !targetProfile) {
+    return { success: false, message: "Utente di destinazione non trovato." }
+  }
+
+  const { error: rpcError } = await supabase.rpc("add_points", {
+    user_id_param: targetProfile.id,
+    points_to_add: amount,
+    description_param: description,
+  })
+
+  if (rpcError) {
+    return { success: false, message: rpcError.message }
+  }
+
+  revalidatePath("/")
+  return { success: true, message: `Aggiunti con successo ${amount} punti a ${email}.` }
+}
+
+export async function getAdminRedeemedRewards() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authUserError,
+  } = await supabase.auth.getUser()
+
+  if (authUserError || !user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { data: adminProfile, error: adminProfileError } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (adminProfileError || !adminProfile || !adminProfile.is_admin) {
+    return { success: false, message: "Non autorizzato." }
+  }
+
+  const { data: redeemedRewards, error } = await supabase
+    .from("reward_codes")
+    .select(
+      `
+    id,
+    redeemed_at,
+    point_transactions (
+      id,
+      user_id,
+      amount,
+      description,
+      created_at,
+      profiles (
+        email,
+        name
+      )
+    )
+  `,
+    )
+    .not("point_transactions", "is", null)
+    .order("created_at", { ascending: false, foreignTable: "point_transactions" })
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  return { success: true, redeemedRewards }
+}
+
+export async function fulfillReward(transactionId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: authUserError,
+  } = await supabase.auth.getUser()
+
+  if (authUserError || !user) {
+    return { success: false, message: "Utente non autenticato." }
+  }
+
+  const { data: adminProfile, error: adminProfileError } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (adminProfileError || !adminProfile || !adminProfile.is_admin) {
+    return { success: false, message: "Non autorizzato." }
+  }
+
+  const { error } = await supabase
+    .from("reward_codes")
+    .update({ redeemed_at: new Date().toISOString() })
+    .eq("point_transaction_id", transactionId)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath("/")
+  return { success: true, message: "Ricompensa contrassegnata come evasa!" }
 }

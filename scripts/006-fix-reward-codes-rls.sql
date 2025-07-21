@@ -1,15 +1,21 @@
--- Drop the existing policy that only allows admins to create reward codes
-DROP POLICY IF EXISTS "Admins can create reward codes." ON public.reward_codes;
+-- Drop existing policies for reward_codes table
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.reward_codes;
+DROP POLICY IF EXISTS "Enable insert for authenticated users only" ON public.reward_codes;
+DROP POLICY IF EXISTS "Enable update for admins only" ON public.reward_codes;
 
--- Create a new policy that allows authenticated users to create reward codes
--- but only if the transaction_id they are linking to belongs to them.
-CREATE POLICY "Allow authenticated users to create reward codes for their own transactions." ON public.reward_codes
-  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM public.point_transactions WHERE id = transaction_id AND user_id = auth.uid()));
+-- Recreate policies for reward_codes table
+-- Allow all authenticated users to read reward codes
+CREATE POLICY "Allow authenticated users to read reward_codes" ON public.reward_codes
+FOR SELECT TO authenticated USING (true);
 
--- Keep the SELECT and UPDATE policies for admins as they are correct for those operations
--- (assuming they were already set up to allow admins to view/update all)
--- If not, ensure you have policies like:
--- CREATE POLICY "Admins can view reward codes." ON public.reward_codes
---   FOR SELECT USING (public.is_claims_admin());
--- CREATE POLICY "Admins can update reward codes." ON public.reward_codes
---   FOR UPDATE USING (public.is_claims_admin());
+-- Allow admins to insert reward codes
+CREATE POLICY "Allow admins to insert reward_codes" ON public.reward_codes
+FOR INSERT TO authenticated WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = TRUE));
+
+-- Allow admins to update reward codes (e.g., mark as fulfilled)
+CREATE POLICY "Allow admins to update reward_codes" ON public.reward_codes
+FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = TRUE));
+
+-- Allow admins to delete reward codes
+CREATE POLICY "Allow admins to delete reward_codes" ON public.reward_codes
+FOR DELETE TO authenticated USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = TRUE));

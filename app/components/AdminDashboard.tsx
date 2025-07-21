@@ -7,26 +7,29 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { LogOut, UserPlus, Users, Gift, CheckCircle, XCircle, Crown } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "sonner"
 import {
   signOut,
   getUsersForAdminView,
   addPointsToUserByEmail,
   getAdminRedeemedRewards,
   fulfillReward,
+  getUserProfile,
 } from "@/app/actions"
-import { toast } from "sonner"
+import { useRouter } from "next/navigation"
+import { Loader2, LogOut, UserPlus, Users, Gift, CheckCircle, Clock, Crown, TrendingUp } from "lucide-react"
 import { motion } from "framer-motion"
 
 interface UserProfile {
@@ -48,83 +51,109 @@ interface RedeemedReward {
     created_at: string
     profiles: {
       email: string
+      name: string
     }
   }
 }
 
 interface AdminDashboardProps {
-  onSignOut: () => void
+  initialUser: UserProfile | null
 }
 
-export default function AdminDashboard({ onSignOut }: AdminDashboardProps) {
+export function AdminDashboard({ initialUser }: AdminDashboardProps) {
+  const router = useRouter()
+  const [user, setUser] = useState<UserProfile | null>(initialUser)
   const [users, setUsers] = useState<UserProfile[]>([])
   const [redeemedRewards, setRedeemedRewards] = useState<RedeemedReward[]>([])
-  const [addPointsEmail, setAddPointsEmail] = useState("")
-  const [addPointsAmount, setAddPointsAmount] = useState<number | "">("")
-  const [addPointsDescription, setAddPointsDescription] = useState("")
+  const [addPointsData, setAddPointsData] = useState({
+    email: "",
+    amount: 0,
+    description: "",
+  })
   const [isAddingPoints, setIsAddingPoints] = useState(false)
-  const [isFulfillingReward, setIsFulfillingReward] = useState(false)
+  const [isFulfilling, setIsFulfilling] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isAddPointsDialogOpen, setIsAddPointsDialogOpen] = useState(false)
 
-  const fetchAdminData = async () => {
-    const usersResult = await getUsersForAdminView()
-    if (usersResult.success && usersResult.users) {
-      setUsers(usersResult.users)
-    } else {
-      toast.error(usersResult.message || "Errore nel caricamento degli utenti.")
-      onSignOut() // Force sign out if not authorized or error
+  useEffect(() => {
+    const fetchData = async () => {
+      const userResult = await getUserProfile()
+      if (userResult.success && userResult.profile && userResult.profile.is_admin) {
+        setUser(userResult.profile)
+
+        const [usersResult, rewardsResult] = await Promise.all([getUsersForAdminView(), getAdminRedeemedRewards()])
+
+        if (usersResult.success && usersResult.users) {
+          setUsers(usersResult.users)
+        } else {
+          toast.error(usersResult.message || "Impossibile caricare gli utenti.")
+        }
+
+        if (rewardsResult.success && rewardsResult.redeemedRewards) {
+          setRedeemedRewards(rewardsResult.redeemedRewards)
+        } else {
+          toast.error(rewardsResult.message || "Impossibile caricare i premi riscattati.")
+        }
+      } else {
+        toast.error(userResult.message || "Accesso non autorizzato all'area admin.")
+        router.push("/")
+      }
+      setIsLoading(false)
     }
 
-    const rewardsResult = await getAdminRedeemedRewards()
-    if (rewardsResult.success && rewardsResult.redeemedRewards) {
-      setRedeemedRewards(rewardsResult.redeemedRewards)
+    fetchData()
+  }, [router])
+
+  const handleSignOut = async () => {
+    const result = await signOut()
+    if (result.success) {
+      toast.success(result.message)
+      router.push("/")
     } else {
-      toast.error(rewardsResult.message || "Errore nel caricamento dei premi riscattati.")
+      toast.error(result.message)
     }
   }
-
-  useEffect(() => {
-    fetchAdminData()
-    const interval = setInterval(fetchAdminData, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
 
   const handleAddPoints = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsAddingPoints(true)
-    if (addPointsEmail && typeof addPointsAmount === "number" && addPointsAmount > 0 && addPointsDescription) {
-      const formData = new FormData()
-      formData.append("email", addPointsEmail)
-      formData.append("amount", addPointsAmount.toString())
-      formData.append("description", addPointsDescription)
 
-      const result = await addPointsToUserByEmail(formData)
-      if (result.success) {
-        toast.success(result.message)
-        setAddPointsEmail("")
-        setAddPointsAmount("")
-        setAddPointsDescription("")
-        setIsAddPointsDialogOpen(false)
-        fetchAdminData() // Refresh data
-      } else {
-        toast.error(result.message)
-      }
-    } else {
-      toast.error("Per favore, compila tutti i campi per aggiungere punti.")
-    }
+    const formData = new FormData()
+    formData.append("email", addPointsData.email)
+    formData.append("amount", addPointsData.amount.toString())
+    formData.append("description", addPointsData.description)
+
+    const result = await addPointsToUserByEmail(formData)
     setIsAddingPoints(false)
-  }
 
-  const handleFulfillReward = async (transactionId: string) => {
-    setIsFulfillingReward(true)
-    const result = await fulfillReward(transactionId)
     if (result.success) {
       toast.success(result.message)
-      fetchAdminData() // Refresh data
+      setAddPointsData({ email: "", amount: 0, description: "" })
+      setIsAddPointsDialogOpen(false)
+
+      const usersResult = await getUsersForAdminView()
+      if (usersResult.success && usersResult.users) {
+        setUsers(usersResult.users)
+      }
     } else {
       toast.error(result.message)
     }
-    setIsFulfillingReward(false)
+  }
+
+  const handleFulfillReward = async (transactionId: string) => {
+    setIsFulfilling(true)
+    const result = await fulfillReward(transactionId)
+    setIsFulfilling(false)
+
+    if (result.success) {
+      toast.success(result.message)
+      const rewardsResult = await getAdminRedeemedRewards()
+      if (rewardsResult.success && rewardsResult.redeemedRewards) {
+        setRedeemedRewards(rewardsResult.redeemedRewards)
+      }
+    } else {
+      toast.error(result.message)
+    }
   }
 
   const formatDateTime = (isoString: string) => {
@@ -138,217 +167,298 @@ export default function AdminDashboard({ onSignOut }: AdminDashboardProps) {
     })
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 sm:p-6 lg:p-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-6xl mx-auto"
-      >
-        {/* Header */}
-        <Card className="mb-6 bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
-          <CardContent className="flex flex-col sm:flex-row items-center justify-between p-4 sm:p-6">
-            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
-              <Crown className="w-12 h-12 text-purple-600" />
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">Dashboard Amministratore</h2>
-                <p className="text-gray-600">Gestisci utenti e premi fedeltà.</p>
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <Button
-                variant="outline"
-                className="bg-purple-500 text-white hover:bg-purple-600 hover:text-white shadow-md"
-                onClick={() => (window.location.href = "/dashboard")}
-              >
-                <UserPlus className="w-5 h-5 mr-2" /> Dashboard Utente
-              </Button>
-              <Button
-                variant="outline"
-                className="bg-red-500 text-white hover:bg-red-600 hover:text-white shadow-md"
-                onClick={async () => {
-                  await signOut()
-                  onSignOut()
-                }}
-              >
-                <LogOut className="w-5 h-5 mr-2" /> Esci
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-600">Caricamento dashboard admin...</p>
+        </div>
+      </div>
+    )
+  }
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Manage Users Card */}
+  if (!user || !user.is_admin) {
+    return null
+  }
+
+  const totalUsers = users.length
+  const totalPoints = users.reduce((sum, u) => sum + u.points, 0)
+  const pendingRewards = redeemedRewards.filter((r) => !r.redeemed_at).length
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur-md shadow-sm">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
+              <Crown className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Admin Dashboard
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2">
+              <Crown className="w-4 h-4 text-yellow-500" />
+              <span className="font-medium text-gray-900">{user.name || user.email}</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => router.push("/")}>
+              <Users className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Dashboard Utente</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">Esci</span>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        {/* Welcome Section */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Dashboard Amministratore</h1>
+          <p className="text-gray-600">Gestisci utenti, punti e premi del sistema fedeltà</p>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{ delay: 0.1 }}
           >
-            <Card className="h-full bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
+            <Card className="border-0 shadow-lg">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Gestisci Utenti</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-700">Utenti Totali</CardTitle>
                 <Users className="w-4 h-4 text-gray-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{totalUsers}</div>
+                <p className="text-xs text-gray-500 mt-1">Membri registrati</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Punti Totali</CardTitle>
+                <TrendingUp className="w-4 h-4 text-gray-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{totalPoints.toLocaleString()}</div>
+                <p className="text-xs text-gray-500 mt-1">Nel sistema</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Premi in Sospeso</CardTitle>
+                <Clock className="w-4 h-4 text-gray-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{pendingRewards}</div>
+                <p className="text-xs text-gray-500 mt-1">Da evadere</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Add Points */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <UserPlus className="w-5 h-5 text-purple-600" />
+                  Gestione Punti
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Dialog open={isAddPointsDialogOpen} onOpenChange={setIsAddPointsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="w-full mb-4 bg-green-500 hover:bg-green-600 text-white shadow-md">
-                      <UserPlus className="w-4 h-4 mr-2" /> Aggiungi Punti a Utente
+                    <Button className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Aggiungi Punti a Utente
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg shadow-xl">
+                  <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                       <DialogTitle>Aggiungi Punti</DialogTitle>
-                      <DialogDescription>
-                        Aggiungi punti al saldo di un utente specifico tramite email.
-                      </DialogDescription>
+                      <DialogDescription>Aggiungi punti al saldo di un utente specifico</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleAddPoints} className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="email" className="text-right">
-                          Email Utente
-                        </Label>
+                    <form onSubmit={handleAddPoints} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Utente</Label>
                         <Input
                           id="email"
                           type="email"
-                          value={addPointsEmail}
-                          onChange={(e) => setAddPointsEmail(e.target.value)}
-                          className="col-span-3"
+                          value={addPointsData.email}
+                          onChange={(e) => setAddPointsData((prev) => ({ ...prev, email: e.target.value }))}
                           placeholder="utente@example.com"
                           required
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="amount" className="text-right">
-                          Quantità Punti
-                        </Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Punti da Aggiungere</Label>
                         <Input
                           id="amount"
                           type="number"
-                          value={addPointsAmount}
-                          onChange={(e) => setAddPointsAmount(Number(e.target.value))}
-                          className="col-span-3"
+                          value={addPointsData.amount}
+                          onChange={(e) => setAddPointsData((prev) => ({ ...prev, amount: Number(e.target.value) }))}
                           placeholder="100"
-                          required
                           min="1"
+                          required
                         />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="description" className="text-right">
-                          Descrizione
-                        </Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Descrizione</Label>
                         <Input
                           id="description"
-                          value={addPointsDescription}
-                          onChange={(e) => setAddPointsDescription(e.target.value)}
-                          className="col-span-3"
-                          placeholder="Bonus di benvenuto"
+                          value={addPointsData.description}
+                          onChange={(e) => setAddPointsData((prev) => ({ ...prev, description: e.target.value }))}
+                          placeholder="Bonus benvenuto"
                           required
                         />
                       </div>
                       <DialogFooter>
-                        <Button type="submit" disabled={isAddingPoints}>
-                          {isAddingPoints ? "Aggiungendo..." : "Aggiungi Punti"}
+                        <Button type="submit" disabled={isAddingPoints} className="w-full">
+                          {isAddingPoints ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Aggiunta in corso...
+                            </>
+                          ) : (
+                            "Aggiungi Punti"
+                          )}
                         </Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>
                 </Dialog>
 
-                <ScrollArea className="h-[300px] w-full rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Punti</TableHead>
-                        <TableHead>Admin</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.name || "N/A"}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.points}</TableCell>
-                          <TableCell>{user.is_admin ? "Sì" : "No"}</TableCell>
-                        </TableRow>
+                <div className="mt-6">
+                  <h4 className="font-medium text-gray-900 mb-3">Utenti Registrati</h4>
+                  <ScrollArea className="h-[200px] rounded-md border">
+                    <div className="p-4 space-y-3">
+                      {users.map((u) => (
+                        <div key={u.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-50">
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{u.name || u.email}</p>
+                            <p className="text-xs text-gray-500">{u.email}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {u.points} punti
+                            </Badge>
+                            {u.is_admin && (
+                              <Badge variant="default" className="text-xs">
+                                Admin
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                    </div>
+                  </ScrollArea>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Redeemed Rewards Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Card className="h-full bg-white/90 backdrop-blur-md shadow-lg rounded-xl border border-white/60">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Premi Riscattati</CardTitle>
-                <Gift className="w-4 h-4 text-gray-500" />
+          {/* Redeemed Rewards */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-gray-900">
+                  <Gift className="w-5 h-5 text-purple-600" />
+                  Premi Riscattati
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[350px] w-full rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Utente</TableHead>
-                        <TableHead>Descrizione</TableHead>
-                        <TableHead>Punti</TableHead>
-                        <TableHead>Data Riscatto</TableHead>
-                        <TableHead>Stato</TableHead>
-                        <TableHead>Azione</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {redeemedRewards.map((reward) => (
-                        <TableRow key={reward.id}>
-                          <TableCell className="font-medium">
-                            {reward.point_transactions.profiles?.email || "N/A"}
-                          </TableCell>
-                          <TableCell>{reward.point_transactions.description}</TableCell>
-                          <TableCell>-{reward.point_transactions.amount}</TableCell>
-                          <TableCell>{formatDateTime(reward.point_transactions.created_at)}</TableCell>
-                          <TableCell>
-                            {reward.redeemed_at ? (
-                              <span className="text-green-600 flex items-center">
-                                <CheckCircle className="w-4 h-4 mr-1" /> Evaso
-                              </span>
-                            ) : (
-                              <span className="text-yellow-600 flex items-center">
-                                <XCircle className="w-4 h-4 mr-1" /> In Sospeso
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {!reward.redeemed_at && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleFulfillReward(reward.point_transactions.id)}
-                                disabled={isFulfillingReward}
-                              >
-                                {isFulfillingReward ? "Evasione..." : "Evadi"}
-                              </Button>
-                            )}
-                          </TableCell>
+                {redeemedRewards.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Gift className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Nessun premio riscattato</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px] rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Utente</TableHead>
+                          <TableHead className="text-xs">Premio</TableHead>
+                          <TableHead className="text-xs">Punti</TableHead>
+                          <TableHead className="text-xs">Data</TableHead>
+                          <TableHead className="text-xs">Stato</TableHead>
+                          <TableHead className="text-xs">Azione</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                      </TableHeader>
+                      <TableBody>
+                        {redeemedRewards.map((reward) => (
+                          <TableRow key={reward.id}>
+                            <TableCell className="text-xs">
+                              <div>
+                                <p className="font-medium">{reward.point_transactions.profiles.name || "N/A"}</p>
+                                <p className="text-gray-500">{reward.point_transactions.profiles.email}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs">{reward.point_transactions.description}</TableCell>
+                            <TableCell className="text-xs font-medium">-{reward.point_transactions.amount}</TableCell>
+                            <TableCell className="text-xs">
+                              {formatDateTime(reward.point_transactions.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              {reward.redeemed_at ? (
+                                <Badge variant="default" className="text-xs">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Evaso
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  In Sospeso
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {!reward.redeemed_at && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleFulfillReward(reward.point_transactions.id)}
+                                  disabled={isFulfilling}
+                                  className="h-7 text-xs"
+                                >
+                                  {isFulfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : "Evadi"}
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         </div>
-      </motion.div>
+      </main>
     </div>
   )
 }

@@ -2,32 +2,30 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
-import { motion } from "framer-motion"
+import { EyeIcon, EyeOffIcon, CheckCircle2, AlertCircle, User, Mail, Lock } from "lucide-react"
+import { toast } from "sonner"
 import { signUp } from "@/app/actions"
-import { toast } from "sonner" // Corretto l'import di toast
+import { motion } from "framer-motion"
 
 interface SignUpFormProps {
-  onSignUpSuccess: () => void
-  onBack: () => void
+  onClose: () => void
   onSignInClick: () => void
 }
 
-export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: SignUpFormProps) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+export function SignUpForm({ onClose, onSignInClick }: SignUpFormProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [message, setMessage] = useState("")
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
 
   const passwordStrength = (password: string) => {
     let strength = 0
@@ -51,209 +49,220 @@ export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: S
     return "Forte"
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMessage("")
-    setIsSuccess(false)
-    setIsLoading(true)
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
 
-    if (password !== confirmPassword) {
-      setMessage("Le password non corrispondono.")
-      setIsSuccess(false)
-      setIsLoading(false)
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Le password non corrispondono")
       return
     }
 
-    if (passwordStrength(password) < 2) {
-      setMessage("La password deve essere più forte. Usa almeno 8 caratteri con lettere e numeri.")
-      setIsSuccess(false)
-      setIsLoading(false)
+    if (passwordStrength(formData.password) < 2) {
+      toast.error("La password deve essere più forte. Usa almeno 8 caratteri con lettere e numeri.")
       return
     }
 
-    const formData = new FormData(e.target as HTMLFormElement)
-    const result = await signUp(formData)
+    const formDataObj = new FormData()
+    formDataObj.append("name", formData.name)
+    formDataObj.append("email", formData.email)
+    formDataObj.append("password", formData.password)
+    formDataObj.append("confirmPassword", formData.confirmPassword)
 
-    if (result.success) {
-      setMessage(result.message)
-      setIsSuccess(true)
-      toast.success(result.message)
-      setTimeout(onSignUpSuccess, 2000)
-    } else {
-      setMessage(result.message)
-      setIsSuccess(false)
-      toast.error(result.message)
-    }
-    setIsLoading(false)
+    startTransition(async () => {
+      const result = await signUp(formDataObj)
+      if (result.success) {
+        toast.success(result.message)
+        onClose()
+      } else {
+        toast.error(result.message)
+      }
+    })
+  }
+
+  const inputVariants = {
+    initial: { y: 10, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-md relative"
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="absolute -top-12 left-0 text-gray-700 hover:text-purple-600 transition-colors duration-200"
-          aria-label="Torna indietro"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </Button>
-        <Card className="w-full bg-white shadow-lg rounded-lg">
-          <CardHeader className="text-center space-y-2">
-            <CardTitle className="text-3xl font-bold text-gray-900">Crea il Tuo Account</CardTitle>
-            <CardDescription className="text-gray-600">
-              Unisciti al nostro programma fedeltà e inizia a guadagnare premi!
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="Mario Rossi"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="mario.rossi@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Min. 8 caratteri"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-                {password && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Forza password:</span>
-                      <span
-                        className={`text-xs font-medium ${
-                          passwordStrength(password) <= 1
-                            ? "text-red-500"
-                            : passwordStrength(password) <= 3
-                              ? "text-yellow-500"
-                              : "text-green-500"
-                        }`}
-                      >
-                        {getPasswordStrengthText(passwordStrength(password))}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${getPasswordStrengthColor(passwordStrength(password))}`}
-                        style={{ width: `${(passwordStrength(password) / 5) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Conferma Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Conferma la tua password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border-gray-300 focus:border-purple-500 focus:ring-purple-500 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </Button>
-                </div>
-                {password !== confirmPassword && confirmPassword.length > 0 && (
-                  <p className="text-red-500 text-sm flex items-center gap-1">
-                    <XCircle className="w-4 h-4" /> Le password non corrispondono.
-                  </p>
-                )}
-              </div>
-              {message && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex items-center gap-2 text-sm ${isSuccess ? "text-green-600" : "text-red-600"}`}
-                >
-                  {isSuccess ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {message}
-                </motion.div>
-              )}
-              <Button
-                type="submit"
-                className="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition-colors duration-200 shadow-md"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    Registrazione...
-                  </span>
-                ) : (
-                  "Registrati"
-                )}
-              </Button>
-            </form>
-            <div className="text-center text-sm text-gray-600">
-              Hai già un account?{" "}
-              <Button
-                variant="link"
-                onClick={onSignInClick}
-                className="p-0 h-auto text-purple-600 hover:text-purple-700 transition-colors duration-200"
-              >
-                Accedi
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <motion.form
+      initial="initial"
+      animate="animate"
+      variants={{
+        initial: { opacity: 0, scale: 0.95 },
+        animate: { opacity: 1, scale: 1, transition: { staggerChildren: 0.07, delayChildren: 0.1 } },
+      }}
+      onSubmit={handleSubmit}
+      className="space-y-6 p-1"
+    >
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+          Nome completo
+        </Label>
+        <div className="relative">
+          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="name"
+            type="text"
+            placeholder="Mario Rossi"
+            value={formData.name}
+            onChange={(e) => handleInputChange("name", e.target.value)}
+            className="pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+          />
+        </div>
       </motion.div>
-    </div>
+
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+          Email
+        </Label>
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="email"
+            type="email"
+            placeholder="mario.rossi@example.com"
+            value={formData.email}
+            onChange={(e) => handleInputChange("email", e.target.value)}
+            className="pl-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+          />
+        </div>
+      </motion.div>
+
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+          Password
+        </Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Minimo 8 caratteri"
+            value={formData.password}
+            onChange={(e) => handleInputChange("password", e.target.value)}
+            className="pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+            minLength={6}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 py-1 hover:bg-transparent"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? (
+              <EyeOffIcon className="h-4 w-4 text-gray-400" />
+            ) : (
+              <EyeIcon className="h-4 w-4 text-gray-400" />
+            )}
+          </Button>
+        </div>
+        {formData.password && (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500">Forza password:</span>
+              <span
+                className={`text-xs font-medium ${
+                  passwordStrength(formData.password) <= 1
+                    ? "text-red-500"
+                    : passwordStrength(formData.password) <= 3
+                      ? "text-yellow-500"
+                      : "text-green-500"
+                }`}
+              >
+                {getPasswordStrengthText(passwordStrength(formData.password))}
+              </span>
+            </div>
+            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 ${getPasswordStrengthColor(passwordStrength(formData.password))}`}
+                style={{ width: `${(passwordStrength(formData.password) / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      <motion.div variants={inputVariants} className="space-y-2">
+        <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+          Conferma Password
+        </Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            id="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Conferma la tua password"
+            value={formData.confirmPassword}
+            onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+            className="pl-10 pr-10 border-gray-200 focus:border-purple-500 focus:ring-purple-500 transition-colors"
+            required
+            minLength={6}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-0 h-full px-3 py-1 hover:bg-transparent"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            {showConfirmPassword ? (
+              <EyeOffIcon className="h-4 w-4 text-gray-400" />
+            ) : (
+              <EyeIcon className="h-4 w-4 text-gray-400" />
+            )}
+          </Button>
+        </div>
+        {formData.password !== formData.confirmPassword && formData.confirmPassword.length > 0 && (
+          <div className="flex items-center gap-1 text-red-500 text-sm">
+            <AlertCircle className="w-3 h-3" />
+            Le password non corrispondono
+          </div>
+        )}
+        {formData.password === formData.confirmPassword && formData.confirmPassword.length > 0 && (
+          <div className="flex items-center gap-1 text-green-500 text-sm">
+            <CheckCircle2 className="w-3 h-3" />
+            Le password corrispondono
+          </div>
+        )}
+      </motion.div>
+
+      <motion.div variants={inputVariants} className="space-y-4">
+        <Button
+          type="submit"
+          className="w-full h-11 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+          disabled={isPending}
+        >
+          {isPending ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Registrazione in corso...
+            </div>
+          ) : (
+            "Crea Account"
+          )}
+        </Button>
+
+        <div className="text-center text-sm text-gray-600">
+          Hai già un account?{" "}
+          <Button
+            variant="link"
+            type="button"
+            onClick={onSignInClick}
+            className="p-0 h-auto text-purple-600 hover:text-purple-700 font-medium"
+          >
+            Accedi qui
+          </Button>
+        </div>
+      </motion.div>
+    </motion.form>
   )
 }
