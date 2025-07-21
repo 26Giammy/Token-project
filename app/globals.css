@@ -3,77 +3,133 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    font-family: "Inter", system-ui, sans-serif;
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
   }
 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
   body {
-    @apply antialiased;
+    @apply bg-background text-foreground;
   }
 }
 
-:root {
-  --page-gradient-start: 180 100% 98%; /* soft lavender */
-  --page-gradient-via: 330 100% 98%; /* soft pink */
-  --page-gradient-end: 39 100% 98%; /* soft beige */
+/* Custom gradients for the loyalty app */
+.bg-gradient-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
 }
 
-.dark {
-  --page-gradient-start: 240 5.9% 10%;
-  --page-gradient-via: 240 5.9% 10%;
-  --page-gradient-end: 240 5.9% 10%;
+.from-purple-50 {
+  --tw-gradient-from: #f9fafb; /* A very light gray/off-white */
+  --tw-gradient-to: rgba(249, 250, 251, 0);
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.via-pink-50 {
+  --tw-gradient-stops: var(--tw-gradient-from), #fdf2f8, var(--tw-gradient-to);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+.to-blue-50 {
+  --tw-gradient-to: #eff6ff;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.text-brand-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, #8b5cf6, #ec4899); /* Purple to Pink */
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.3);
-  border-radius: 3px;
+.bg-brand-gradient {
+  background-image: linear-gradient(to right, #8b5cf6, #ec4899); /* Purple to Pink */
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.5);
+.text-brand-primary {
+  color: #8b5cf6; /* Purple */
 }
 
-/* Smooth transitions */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow,
-    transform, filter, backdrop-filter;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
+.hover\:text-brand-secondary:hover {
+  color: #ec4899; /* Pink */
 }
 
-/* Focus styles */
-input:focus,
-button:focus {
-  outline: 2px solid rgba(168, 85, 247, 0.5);
+.focus-visible-ring-brand-primary:focus-visible {
+  outline: 2px solid transparent;
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px #8b5cf6; /* Purple */
 }
 
-/* Animation for loading states */
-@keyframes pulse {
-  0%,
-  100% {
+/* Animations */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
     opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
+    transform: scale(1);
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-scaleIn {
+  animation: scaleIn 0.5s ease-out forwards;
 }

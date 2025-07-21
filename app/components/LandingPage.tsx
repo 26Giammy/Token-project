@@ -1,77 +1,72 @@
 "use client"
 
-import { ArrowRight, Star, Gift, Crown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { motion } from "framer-motion"
+import { ArrowRight } from "lucide-react"
+import Image from "next/image"
 
 interface LandingPageProps {
-  onStart: () => void
+  onStartJourney: () => void
 }
 
-export default function LandingPage({ onStart }: LandingPageProps) {
+export default function LandingPage({ onStartJourney }: LandingPageProps) {
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="px-6 py-6 flex justify-center md:justify-start">
-        <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-pink-400 rounded-xl flex items-center justify-center">
-          <Crown className="w-6 h-6 text-white" />
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 p-4 text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="mb-8"
+      >
+        <Image
+          src="/placeholder-logo.svg"
+          alt="Logo del programma fedeltà"
+          width={150}
+          height={150}
+          className="mx-auto mb-4 drop-shadow-lg"
+        />
+        <h1 className="text-5xl font-extrabold text-gray-900 leading-tight">
+          <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">Benvenuto</span>{" "}
+          nel Nostro Programma Fedeltà
+        </h1>
+        <p className="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
+          Guadagna punti, sblocca premi esclusivi e goditi vantaggi unici.
+        </p>
+      </motion.div>
 
-      {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        <div className="max-w-md mx-auto space-y-8">
-          {/* Floating Icons */}
-          <div className="relative">
-            <div className="absolute -top-4 -left-4 w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center animate-bounce">
-              <Star className="w-4 h-4 text-purple-600" />
-            </div>
-            <div className="absolute -top-2 -right-6 w-6 h-6 bg-pink-200 rounded-full flex items-center justify-center animate-pulse">
-              <Gift className="w-3 h-3 text-pink-600" />
-            </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+        className="w-full max-w-md"
+      >
+        <Card className="bg-white/90 backdrop-blur-md shadow-2xl rounded-xl border border-white/60 animate-scaleIn">
+          <CardHeader className="text-center space-y-2">
+            <CardTitle className="text-2xl font-bold text-gray-800">Inizia il Tuo Viaggio di Premi</CardTitle>
+            <CardDescription className="text-gray-600">
+              Registrati o accedi per scoprire un mondo di vantaggi.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center p-6">
+            <Button
+              onClick={onStartJourney}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+            >
+              Inizia Ora <ArrowRight className="w-5 h-5" />
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-            {/* Main Content */}
-            <div className="space-y-6">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-800 leading-tight">
-                Unisciti al nostro
-                <span className="block bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Loyalty Program
-                </span>
-              </h1>
-
-              <p className="text-lg text-gray-600 leading-relaxed">
-                {"Guadagni punti e vinci ricompense esclusive!"}
-              </p>
-            </div>
-          </div>
-
-          {/* CTA Button */}
-          <button
-            onClick={onStart}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            {"Inizia il tuo viaggio"}
-            <ArrowRight className="w-5 h-5" />
-          </button>
-
-          {/* Trust Indicators */}
-          <div className="flex items-center justify-center gap-6 pt-8 text-sm text-gray-500">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              {"Sicuro"}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              {"Instantaneo"}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-              Rewarding
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Bottom Decoration */}
-      <div className="h-20 bg-gradient-to-t from-white/50 to-transparent"></div>
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+        className="mt-12 text-gray-500 text-sm"
+      >
+        <p>&copy; {new Date().getFullYear()} Il Tuo Programma Fedeltà. Tutti i diritti riservati.</p>
+      </motion.div>
     </div>
   )
 }

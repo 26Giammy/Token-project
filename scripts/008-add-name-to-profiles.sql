@@ -1,11 +1,15 @@
 ALTER TABLE public.profiles
 ADD COLUMN name TEXT;
 
--- Optional: Add a default value or constraint if needed
--- ALTER TABLE public.profiles ALTER COLUMN name SET DEFAULT 'User';
--- ALTER TABLE public.profiles ADD CONSTRAINT name_min_length CHECK (length(name) >= 2);
+ALTER TABLE public.profiles
+ALTER COLUMN name SET DEFAULT '';
 
 -- Optional: Update existing profiles with a default name if desired
--- UPDATE profiles
--- SET name = split_part(email, '@', 1)
--- WHERE name IS NULL;
+UPDATE public.profiles
+SET name = split_part(email, '@', 1)
+WHERE name IS NULL;
+
+-- Optional: Update existing rows to have an empty string for name if null
+UPDATE public.profiles
+SET name = ''
+WHERE name IS NULL;
