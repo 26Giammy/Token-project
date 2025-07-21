@@ -1,14 +1,11 @@
 ALTER TABLE public.profiles
-ADD COLUMN name text;
+ADD COLUMN name TEXT;
 
--- Optional: If you want to backfill existing users with a name derived from their email
--- UPDATE public.profiles
+-- Optional: Add a default value or constraint if needed
+-- ALTER TABLE public.profiles ALTER COLUMN name SET DEFAULT 'User';
+-- ALTER TABLE public.profiles ADD CONSTRAINT name_min_length CHECK (length(name) >= 2);
+
+-- Optional: Update existing profiles with a default name if desired
+-- UPDATE profiles
 -- SET name = split_part(email, '@', 1)
 -- WHERE name IS NULL;
-
--- Optional: Add a policy to allow users to update their own name
-CREATE POLICY "Users can update their own name"
-ON public.profiles
-FOR UPDATE TO authenticated
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);

@@ -1,123 +1,46 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Inter } from "next/font/google"
-import LandingPage from "./components/LandingPage"
-import SignUpForm from "./components/SignUpForm"
-import SignInForm from "./components/SignInForm"
+import { getSupabaseServerClient } from "@/lib/supabase" // Corrected import
+import { cookies } from "next/headers"
 import Dashboard from "./components/Dashboard"
-import AdminDashboard from "./components/AdminDashboard" // New import
-import { getSupabaseClient } from "@/lib/supabase-client"
-import { getUserProfile } from "./actions" // Import getUserProfile to check admin status
-import { toast } from "sonner" // Declare toast variable
+import LandingPage from "./components/LandingPage"
+import AdminDashboard from "./components/AdminDashboard" // Import AdminDashboard
 
-const inter = Inter({ subsets: ["latin"] })
+export default async function Home() {
+  const cookieStore = cookies()
+  const supabase = getSupabaseServerClient(cookieStore)
 
-export default function LoyaltyApp() {
-  const [currentPage, setCurrentPage] = useState<"landing" | "signup" | "signin" | "dashboard" | "admin-dashboard">(
-    "landing",
-  )
-  const [userName, setUserName] = useState("User") // This will now be the actual name or a fallback
-  const [isAdmin, setIsAdmin] = useState(false) // New state for admin status
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    const checkSessionAndProfile = async () => {
-      const supabaseClient = getSupabaseClient()
-      const {
-        data: { session },
-      } = await supabaseClient.auth.getSession()
-
-      if (session) {
-        const profileResult = await getUserProfile()
-        if (profileResult.success && profileResult.profile) {
-          setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
-          setIsAdmin(profileResult.profile.is_admin)
-          setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
-        } else {
-          // If session exists but profile fails to load, log out
-          await supabaseClient.auth.signOut()
-          setCurrentPage("landing")
-          toast.error("Impossibile caricare i dati dell'utente. Per favore riprovare")
-        }
-      } else {
-        setCurrentPage("landing")
-      }
-    }
-    checkSessionAndProfile()
-
-    const { data: authListener } = getSupabaseClient().auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        const profileResult = await getUserProfile()
-        if (profileResult.success && profileResult.profile) {
-          setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
-          setIsAdmin(profileResult.profile.is_admin)
-          setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
-        } else {
-          // Fallback if profile creation/fetch fails after sign-in
-          await getSupabaseClient().auth.signOut()
-          setCurrentPage("landing")
-          toast.error("Impossibile caricare i dati dell'utente. Per favore riprovare")
-        }
-      } else if (event === "SIGNED_OUT") {
-        setCurrentPage("landing")
-        setIsAdmin(false) // Reset admin status on sign out
-      }
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [])
-
-  const navigateToPage = (page: "landing" | "signup" | "signin" | "dashboard" | "admin-dashboard") => {
-    setCurrentPage(page)
-  }
-
-  const handleSignUpSuccess = () => {
-    navigateToPage("signin")
-  }
-
-  const handleSignInSuccess = async () => {
-    // After successful sign-in, re-check profile to determine dashboard or admin-dashboard
-    const profileResult = await getUserProfile()
-    if (profileResult.success && profileResult.profile) {
-      setUserName(profileResult.profile.name || profileResult.profile.email?.split("@")[0] || "User")
-      setIsAdmin(profileResult.profile.is_admin)
-      setCurrentPage(profileResult.profile.is_admin ? "admin-dashboard" : "dashboard")
+  // Fetch user profile including name and is_admin
+  let profile = null
+  if (user) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, email, points, is_admin, name")
+      .eq("id", user.id)
+      .maybeSingle()
+    if (error) {
+      console.error("Error fetching profile in page.tsx:", error)
     } else {
-      // Should not happen often with maybeSingle fix, but as a fallback
-      await getSupabaseClient().auth.signOut()
-      setCurrentPage("landing")
-      toast.error("Impossibile caricare i dati dell'utente. Per favore accedere nuovamente")
+      profile = data
     }
   }
 
-  const handleLogout = () => {
-    setCurrentPage("landing")
-    setIsAdmin(false)
-  }
+  // Determine which dashboard to show
+  const isAdmin = profile?.is_admin === true
 
   return (
-    <div
-      className={`min-h-screen bg-gradient-to-br from-page-gradient-start via-page-gradient-via to-page-gradient-end ${inter.className}`}
-    >
-      {currentPage === "landing" && <LandingPage onStart={() => navigateToPage("signup")} />}
-      {currentPage === "signup" && (
-        <SignUpForm
-          onSignUpSuccess={handleSignUpSuccess}
-          onBack={() => navigateToPage("landing")}
-          onSignInClick={() => navigateToPage("signin")}
-        />
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      {user ? (
+        isAdmin ? (
+          <AdminDashboard user={user} profile={profile} />
+        ) : (
+          <Dashboard user={user} profile={profile} />
+        )
+      ) : (
+        <LandingPage />
       )}
-      {currentPage === "signin" && (
-        <SignInForm
-          onSignInSuccess={handleSignInSuccess}
-          onBack={() => navigateToPage("landing")}
-          onSignUpClick={() => navigateToPage("signup")}
-        />
-      )}
-      {currentPage === "dashboard" && <Dashboard userName={userName} onLogout={handleLogout} isAdmin={isAdmin} />}
-      {currentPage === "admin-dashboard" && <AdminDashboard onLogout={handleLogout} />}
-    </div>
+    </main>
   )
 }

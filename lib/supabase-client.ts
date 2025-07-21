@@ -1,14 +1,13 @@
-import { createClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
 
-// Create a singleton supabase client for client-side usage
-let supabaseClientInstance: ReturnType<typeof createClient> | null = null
+let supabaseBrowserClient: ReturnType<typeof createBrowserClient> | undefined
 
-export function getSupabaseClient() {
-  if (!supabaseClientInstance) {
-    supabaseClientInstance = createClient(
+export function getSupabaseBrowserClient() {
+  if (!supabaseBrowserClient) {
+    supabaseBrowserClient = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
   }
-  return supabaseClientInstance
+  return supabaseBrowserClient
 }

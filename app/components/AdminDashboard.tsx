@@ -2,32 +2,43 @@
 
 import type React from "react"
 
-import { useEffect, useState, useMemo } from "react" // Added useMemo
-import { toast } from "sonner"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useToast } from "@/components/ui/use-toast"
 import {
   addPointsToUserByEmail,
   getUsersForAdminView,
   getAdminRedeemedRewards,
   fulfillReward,
-  signOut,
+  createReward,
 } from "@/app/actions"
-import { LogOut, User, DollarSign, Gift, RefreshCw, ArrowRight, Search } from "lucide-react" // Added Search icon
-import { Input } from "@/components/ui/input" // Import Input component
+import type { User } from "@supabase/supabase-js"
 
 interface AdminDashboardProps {
-  onLogout: () => void
+  user: User | null
+  profile: {
+    id: string
+    email: string
+    is_admin: boolean
+    name?: string | null
+  } | null
 }
 
-interface UserProfileAdmin {
+interface UserProfile {
   id: string
   email: string
   points: number
   is_admin: boolean
+  name?: string | null
 }
 
-interface RedeemedRewardAdmin {
+interface RedeemedReward {
   id: string
-  code: string | null
+  code: string
   redeemed_at: string | null
   point_transactions: {
     id: string
@@ -35,41 +46,54 @@ interface RedeemedRewardAdmin {
     amount: number
     description: string
     created_at: string
-    profiles: { email: string } | null
+    profiles: {
+      email: string
+      name?: string | null
+    }
   } | null
 }
 
-export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  const [users, setUsers] = useState<UserProfileAdmin[]>([])
-  const [redeemedRewards, setRedeemedRewards] = useState<RedeemedRewardAdmin[]>([])
+export default function AdminDashboard({ user, profile }: AdminDashboardProps) {
+  const { toast } = useToast()
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [redeemedRewards, setRedeemedRewards] = useState<RedeemedReward[]>([])
   const [loadingUsers, setLoadingUsers] = useState(true)
-  const [loadingRewards, setLoadingRewards] = useState(true)
+  const [loadingRedeemed, setLoadingRedeemed] = useState(true)
+  const [addPointsEmail, setAddPointsEmail] = useState("")
+  const [addPointsAmount, setAddPointsAmount] = useState<number | "">(0)
   const [addPointsLoading, setAddPointsLoading] = useState(false)
-  const [emailToAddPoints, setEmailToAddPoints] = useState("")
-  const [pointsAmount, setPointsAmount] = useState(0)
-  const [pointsDescription, setPointsDescription] = useState("")
-  const [userSearchTerm, setUserSearchTerm] = useState("") // New state for user search
+  const [newRewardName, setNewRewardName] = useState("")
+  const [newRewardCost, setNewRewardCost] = useState<number | "">(0)
+  const [createRewardLoading, setCreateRewardLoading] = useState(false)
 
   const fetchUsers = async () => {
     setLoadingUsers(true)
-    const result = await getUsersForAdminView()
-    if (result.success && result.users) {
-      setUsers(result.users)
+    const { success, users: fetchedUsers, message } = await getUsersForAdminView()
+    if (success && fetchedUsers) {
+      setUsers(fetchedUsers)
     } else {
-      toast.error(result.message || "Impossibile caricare gli users.")
+      toast({
+        title: "Errore",
+        description: message || "Impossibile caricare gli utenti.",
+        variant: "destructive",
+      })
     }
     setLoadingUsers(false)
   }
 
   const fetchRedeemedRewards = async () => {
-    setLoadingRewards(true)
-    const result = await getAdminRedeemedRewards()
-    if (result.success && result.redeemedRewards) {
-      setRedeemedRewards(result.redeemedRewards)
+    setLoadingRedeemed(true)
+    const { success, redeemedRewards: fetchedRedeemed, message } = await getAdminRedeemedRewards()
+    if (success && fetchedRedeemed) {
+      setRedeemedRewards(fetchedRedeemed)
     } else {
-      toast.error(result.message || "Impossibile caricare i codici per ricompense.")
+      toast({
+        title: "Errore",
+        description: message || "Impossibile caricare i premi riscattati.",
+        variant: "destructive",
+      })
     }
-    setLoadingRewards(false)
+    setLoadingRedeemed(false)
   }
 
   useEffect(() => {
@@ -77,23 +101,25 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     fetchRedeemedRewards()
   }, [])
 
-  const handleAddPointsSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddPoints = async (e: React.FormEvent) => {
     e.preventDefault()
     setAddPointsLoading(true)
-    const formData = new FormData(e.currentTarget)
-    formData.append("email", emailToAddPoints)
-    formData.append("amount", pointsAmount.toString())
-    formData.append("description", pointsDescription)
-
-    const result = await addPointsToUserByEmail(formData)
-    if (result.success) {
-      toast.success(result.message)
-      setEmailToAddPoints("")
-      setPointsAmount(0)
-      setPointsDescription("")
-      fetchUsers() // Refresh user list
+    if (addPointsEmail && typeof addPointsAmount === "number" && addPointsAmount > 0) {
+      const result = await addPointsToUserByEmail(addPointsEmail, addPointsAmount)
+      if (result.success) {
+        toast({ title: "Successo", description: result.message })
+        setAddPointsEmail("")
+        setAddPointsAmount(0)
+        fetchUsers() // Refresh user list
+      } else {
+        toast({ title: "Errore", description: result.message, variant: "destructive" })
+      }
     } else {
-      toast.error(result.message || "Impossibile aggiungere punti.")
+      toast({
+        title: "Errore",
+        description: "Inserisci un'email valida e un importo positivo.",
+        variant: "destructive",
+      })
     }
     setAddPointsLoading(false)
   }
@@ -101,230 +127,201 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const handleFulfillReward = async (transactionId: string) => {
     const result = await fulfillReward(transactionId)
     if (result.success) {
-      toast.success(result.message)
+      toast({ title: "Successo", description: result.message })
       fetchRedeemedRewards() // Refresh redeemed rewards list
     } else {
-      toast.error(result.message || "Impossibile soddisfare la richiesta.")
+      toast({ title: "Errore", description: result.message, variant: "destructive" })
     }
   }
 
-  const handleLogout = async () => {
-    const result = await signOut()
-    if (result.success) {
-      toast.success(result.message)
-      onLogout()
+  const handleCreateReward = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreateRewardLoading(true)
+    if (newRewardName && typeof newRewardCost === "number" && newRewardCost > 0) {
+      const result = await createReward(newRewardName, newRewardCost)
+      if (result.success) {
+        toast({ title: "Successo", description: result.message })
+        setNewRewardName("")
+        setNewRewardCost(0)
+      } else {
+        toast({ title: "Errore", description: result.message, variant: "destructive" })
+      }
     } else {
-      toast.error(result.message)
+      toast({
+        title: "Errore",
+        description: "Inserisci un nome e un costo in punti validi per il premio.",
+        variant: "destructive",
+      })
     }
+    setCreateRewardLoading(false)
   }
-
-  // Filtered users based on search term
-  const filteredUsers = useMemo(() => {
-    if (!userSearchTerm) {
-      return users
-    }
-    const lowerCaseSearchTerm = userSearchTerm.toLowerCase()
-    return users.filter(
-      (user) =>
-        user.email.toLowerCase().includes(lowerCaseSearchTerm) || user.id.toLowerCase().includes(lowerCaseSearchTerm),
-    )
-  }, [users, userSearchTerm])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-page-gradient-start via-page-gradient-via to-page-gradient-end p-6">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-        <button onClick={handleLogout} className="p-2 hover:bg-white/50 rounded-xl transition-colors">
-          <LogOut className="w-5 h-5 text-gray-600" />
-        </button>
-      </header>
+    <div className="w-full max-w-6xl mx-auto p-4 grid gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-3xl">Pannello di Amministrazione</CardTitle>
+          <CardDescription>Gestisci utenti, punti e premi.</CardDescription>
+        </CardHeader>
+      </Card>
 
-      {/* Add Points Section */}
-      <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-8 border border-white/50">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <DollarSign className="w-6 h-6 text-green-600" /> Aggiungi punti ad user
-        </h2>
-        <form onSubmit={handleAddPointsSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              User Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={emailToAddPoints}
-              onChange={(e) => setEmailToAddPoints(e.target.value)}
-              placeholder="user@example.com"
-              className="w-full px-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-              Numero di punti
-            </label>
-            <input
-              type="number"
-              id="amount"
-              value={pointsAmount}
-              onChange={(e) => setPointsAmount(Number.parseInt(e.target.value) || 0)}
-              min="1"
-              placeholder="e.g., 100"
-              className="w-full px-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Descizione
-            </label>
-            <input
-              type="text"
-              id="description"
-              value={pointsDescription}
-              onChange={(e) => setPointsDescription(e.target.value)}
-              placeholder="e.g., 'Acquisto di prodotto X'"
-              className="w-full px-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={addPointsLoading}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-6 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
-          >
-            {addPointsLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <>
-                Add Points <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </button>
-        </form>
-      </section>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Aggiungi Punti a un Utente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAddPoints} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="add-points-email">Email Utente</Label>
+                <Input
+                  id="add-points-email"
+                  type="email"
+                  placeholder="utente@example.com"
+                  value={addPointsEmail}
+                  onChange={(e) => setAddPointsEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="add-points-amount">Quantità Punti</Label>
+                <Input
+                  id="add-points-amount"
+                  type="number"
+                  value={addPointsAmount}
+                  onChange={(e) => setAddPointsAmount(Number(e.target.value))}
+                  required
+                  min="1"
+                />
+              </div>
+              <Button type="submit" disabled={addPointsLoading}>
+                {addPointsLoading ? "Aggiunta..." : "Aggiungi Punti"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-      {/* All Users Section */}
-      <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg mb-8 border border-white/50">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <User className="w-6 h-6 text-blue-600" /> Tutti gli users
-          </span>
-          <button onClick={fetchUsers} className="p-2 hover:bg-gray-100 rounded-full">
-            <RefreshCw className="w-5 h-5 text-gray-600" />
-          </button>
-        </h2>
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Cerca user via email or ID..."
-            value={userSearchTerm}
-            onChange={(e) => setUserSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-          />
-        </div>
-        {loadingUsers ? (
-          <div className="flex justify-center items-center h-24">
-            <div className="w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white/80 rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                  <th className="py-3 px-6 text-left">Email</th>
-                  <th className="py-3 px-6 text-left">Points</th>
-                  <th className="py-3 px-6 text-left">Admin</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-700 text-sm font-light">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="py-3 px-6 text-left whitespace-nowrap">{user.email}</td>
-                      <td className="py-3 px-6 text-left">{user.points}</td>
-                      <td className="py-3 px-6 text-left">{user.is_admin ? "Yes" : "No"}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="py-4 text-center text-gray-500">
-                      Nessun user trovato
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Crea Nuovo Premio</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateReward} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-reward-name">Nome Premio</Label>
+                <Input
+                  id="new-reward-name"
+                  type="text"
+                  placeholder="Buono Sconto 10€"
+                  value={newRewardName}
+                  onChange={(e) => setNewRewardName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="new-reward-cost">Costo in Punti</Label>
+                <Input
+                  id="new-reward-cost"
+                  type="number"
+                  value={newRewardCost}
+                  onChange={(e) => setNewRewardCost(Number(e.target.value))}
+                  required
+                  min="1"
+                />
+              </div>
+              <Button type="submit" disabled={createRewardLoading}>
+                {createRewardLoading ? "Creazione..." : "Crea Premio"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Redeemed Rewards Section */}
-      <section className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/50">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Gift className="w-6 h-6 text-pink-600" /> Ricompense riscattate
-          </span>
-          <button onClick={fetchRedeemedRewards} className="p-2 hover:bg-gray-100 rounded-full">
-            <RefreshCw className="w-5 h-5 text-gray-600" />
-          </button>
-        </h2>
-        {loadingRewards ? (
-          <div className="flex justify-center items-center h-24">
-            <div className="w-8 h-8 border-4 border-pink-400 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {redeemedRewards.length > 0 ? (
-              redeemedRewards.map((reward) => {
-                const transaction = reward.point_transactions
-                const isFulfilled = reward.redeemed_at !== null
-                const fulfilledDate = isFulfilled ? new Date(reward.redeemed_at!).toLocaleString() : null
+      <Card>
+        <CardHeader>
+          <CardTitle>Utenti Registrati</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingUsers ? (
+            <p>Caricamento utenti...</p>
+          ) : users.length === 0 ? (
+            <p>Nessun utente registrato.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Punti</TableHead>
+                  <TableHead>Admin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell>{u.name || "N/A"}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>{u.points}</TableCell>
+                    <TableCell>{u.is_admin ? "Sì" : "No"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-                if (!transaction) return null // Should not happen if data is structured correctly
-
-                return (
-                  <div
-                    key={reward.id}
-                    className="bg-white/80 rounded-xl p-4 shadow-sm border border-white/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-800">
-                        {transaction.profiles?.email || "Unknown User"} riscattato: {transaction.description}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Riscatatto il: {new Date(transaction.created_at).toLocaleString()}
-                      </p>
-                      <p className="text-sm text-gray-600">Points: {Math.abs(transaction.amount)}</p>
-                      {reward.code && (
-                        <p className="text-sm font-mono bg-gray-100 px-2 py-1 rounded mt-1">Code: {reward.code}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isFulfilled ? (
-                        <span className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full">
-                          Fulfilled on: {fulfilledDate}
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleFulfillReward(transaction.id)}
-                          className="bg-purple-500 text-white py-2 px-4 rounded-full text-sm font-medium hover:bg-purple-600 transition-colors"
+      <Card>
+        <CardHeader>
+          <CardTitle>Premi Riscattati</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingRedeemed ? (
+            <p>Caricamento premi riscattati...</p>
+          ) : redeemedRewards.length === 0 ? (
+            <p>Nessun premio riscattato.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Utente</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Premio</TableHead>
+                  <TableHead>Costo Punti</TableHead>
+                  <TableHead>Codice</TableHead>
+                  <TableHead>Data Riscatto</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Azione</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {redeemedRewards.map((reward) => (
+                  <TableRow key={reward.id}>
+                    <TableCell>{reward.point_transactions?.profiles?.name || "N/A"}</TableCell>
+                    <TableCell>{reward.point_transactions?.profiles?.email || "N/A"}</TableCell>
+                    <TableCell>{reward.point_transactions?.description || "N/A"}</TableCell>
+                    <TableCell>{Math.abs(reward.point_transactions?.amount || 0)}</TableCell>
+                    <TableCell>{reward.code}</TableCell>
+                    <TableCell>{new Date(reward.redeemed_at || "").toLocaleString()}</TableCell>
+                    <TableCell>{reward.redeemed_at ? "Riscattato" : "In attesa"}</TableCell>
+                    <TableCell>
+                      {!reward.redeemed_at && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleFulfillReward(reward.point_transactions?.id || "")}
                         >
-                          Segna come completato
-                        </button>
+                          Marca come Riscattato
+                        </Button>
                       )}
-                    </div>
-                  </div>
-                )
-              })
-            ) : (
-              <p className="text-center text-gray-500">No redeemed rewards yet.</p>
-            )}
-          </div>
-        )}
-      </section>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

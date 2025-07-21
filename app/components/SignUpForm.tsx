@@ -1,112 +1,118 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
-import { ArrowLeft, UserPlus, ArrowRight } from "lucide-react"
-import { toast } from "sonner"
-import { signUp } from "@/app/actions"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/components/ui/use-toast"
+import { signUp } from "@/app/actions" // Import the server action
 
-interface SignUpFormProps {
-  onSignUpSuccess: () => void
-  onBack: () => void
-  onSignInClick: () => void
-}
+export default function SignUpForm() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [name, setName] = useState("")
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
 
-export default function SignUpForm({ onSignUpSuccess, onBack, onSignInClick }: SignUpFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    const formData = new FormData(e.currentTarget)
-    const result = await signUp(formData)
-    setIsLoading(false)
+    setLoading(true)
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Errore",
+        description: "Le password non corrispondono.",
+        variant: "destructive",
+      })
+      setLoading(false)
+      return
+    }
+
+    const result = await signUp(email, password, name) // Call the server action with name
 
     if (result.success) {
-      toast.success(result.message)
-      onSignUpSuccess()
+      toast({
+        title: "Successo",
+        description: result.message,
+      })
+      router.push("/") // Redirect to dashboard or home after successful sign-up
     } else {
-      toast.error(result.message)
+      toast({
+        title: "Errore",
+        description: result.message,
+        variant: "destructive",
+      })
     }
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="px-6 py-6 flex items-center">
-        <button onClick={onBack} className="p-2 hover:bg-white/50 rounded-xl transition-colors">
-          <ArrowLeft className="w-6 h-6 text-gray-600" />
-        </button>
-      </header>
-
-      <main className="flex-1 flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-sm mx-auto space-y-8">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center">
-              <UserPlus className="w-8 h-8 text-white" />
-            </div>
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-2xl">Registrati</CardTitle>
+        <CardDescription>Inserisci i tuoi dati per creare un account.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Mario Rossi"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
-
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold text-gray-800">{"Crea il tuo account"}</h1>
-            <p className="text-gray-600">{"Registrati ed inizia a vincere ricompense!"}</p>
+          <div className="grid gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="mario@example.com"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <input
-                type="text"
-                name="name"
-                placeholder="Nome"
-                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                required
-              />
-              <input
-                type="email"
-                name="email"
-                placeholder="Indirizzo email"
-                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                required
-              />
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                required
-              />
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Conferma Password"
-                className="w-full px-4 py-4 bg-white/70 border border-purple-100 rounded-xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-4 px-6 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  Registati
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <p className="text-sm text-gray-600 text-center">
-            Hai già un account?{" "}
-            <button onClick={onSignInClick} className="text-purple-600 hover:underline font-medium">
-              Accedi
-            </button>
-          </p>
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="confirmPassword">Conferma Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Registrazione..." : "Registrati"}
+          </Button>
+        </form>
+        <div className="mt-4 text-center text-sm">
+          Hai già un account?{" "}
+          <Button variant="link" onClick={() => router.push("/signin")} className="p-0 h-auto">
+            Accedi
+          </Button>
         </div>
-      </main>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
