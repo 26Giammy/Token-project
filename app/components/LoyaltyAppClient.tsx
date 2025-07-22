@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase-client"
-import { LandingPage } from "./LandingPage"
 import { Dashboard } from "./Dashboard"
 import { AdminDashboard } from "./AdminDashboard"
-import { getUserProfile } from "@/app/actions"
+import { LandingPage } from "./LandingPage"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
+import { getUserProfile } from "@/app/actions"
 
-interface User {
+interface UserProfile {
   id: string
   email: string
   name: string
@@ -23,100 +24,72 @@ interface PointTransaction {
   created_at: string
 }
 
-export function LoyaltyAppClient() {
-  const [user, setUser] = useState<User | null>(null)
-  const [activity, setActivity] = useState<PointTransaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [currentView, setCurrentView] = useState<"landing" | "dashboard" | "admin">("landing")
+export default function LoyaltyAppClient() {
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [activity, setActivity] = useState<PointTransaction[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
 
   useEffect(() => {
-    const supabase = createClient()
+    const getSession = async () => {
+      setLoading(true)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-    const checkUser = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-
-        if (session?.user) {
-          const result = await getUserProfile()
-          if (result.success && result.data) {
-            setUser(result.data.profile)
-            setActivity(result.data.activity || [])
-
-            // Determine which view to show based on URL or user preference
-            const path = window.location.pathname
-            if (path === "/admin" && result.data.profile.is_admin) {
-              setCurrentView("admin")
-            } else if (session.user) {
-              setCurrentView("dashboard")
-            }
-          }
+      if (session) {
+        const profileResult = await getUserProfile()
+        if (profileResult.success && profileResult.profile) {
+          setUser(profileResult.profile)
+          setActivity(profileResult.activity || [])
+        } else {
+          console.error("Errore nel recupero del profilo utente:", profileResult.message)
+          await supabase.auth.signOut()
+          setUser(null)
+          setActivity(null)
+          toast.error("Sessione non valida. Effettua nuovamente l'accesso.")
         }
-      } catch (error) {
-        console.error("Error checking user:", error)
-      } finally {
-        setIsLoading(false)
+      } else {
+        setUser(null)
+        setActivity(null)
       }
+      setLoading(false)
     }
 
-    checkUser()
+    getSession()
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const result = await getUserProfile()
-        if (result.success && result.data) {
-          setUser(result.data.profile)
-          setActivity(result.data.activity || [])
-          setCurrentView("dashboard")
-        }
-      } else if (event === "SIGNED_OUT") {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        getSession()
+      } else {
         setUser(null)
-        setActivity([])
-        setCurrentView("landing")
+        setActivity(null)
+        setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // Handle view changes
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname
-      if (path === "/admin" && user?.is_admin) {
-        setCurrentView("admin")
-      } else if (user) {
-        setCurrentView("dashboard")
-      } else {
-        setCurrentView("landing")
-      }
+    return () => {
+      authListener.subscription.unsubscribe()
     }
+  }, [supabase])
 
-    window.addEventListener("popstate", handlePopState)
-    return () => window.removeEventListener("popstate", handlePopState)
-  }, [user])
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600">Caricamento applicazione...</p>
+          <p className="text-gray-600">Caricamento...</p>
         </div>
       </div>
     )
   }
 
-  if (currentView === "admin" && user?.is_admin) {
-    return <AdminDashboard initialUser={user} />
-  }
-
-  if (currentView === "dashboard" && user) {
-    return <Dashboard initialUser={user} initialActivity={activity} />
+  if (user) {
+    if (user.is_admin) {
+      return <AdminDashboard initialUser={user} />
+    } else {
+      return <Dashboard initialUser={user} initialActivity={activity} />
+    }
   }
 
   return <LandingPage />

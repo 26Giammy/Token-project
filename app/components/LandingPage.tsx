@@ -2,256 +2,251 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { SignInForm } from "./SignInForm"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { SignUpForm } from "./SignUpForm"
-import { Sparkles, Gift, Users, TrendingUp, Star, Shield, Zap } from "lucide-react"
+import { SignInForm } from "./SignInForm"
+import { Gift, Star, Users, Zap, ArrowRight, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 
 export function LandingPage() {
-  const [showSignIn, setShowSignIn] = useState(false)
   const [showSignUp, setShowSignUp] = useState(false)
+  const [showSignIn, setShowSignIn] = useState(false)
 
-  const handleAuthSuccess = () => {
-    setShowSignIn(false)
-    setShowSignUp(false)
-    // The auth state change will be handled by the parent component
+  const features = [
+    {
+      icon: Gift,
+      title: "Premi Esclusivi",
+      description: "Riscatta i tuoi punti per ottenere premi incredibili e offerte esclusive.",
+    },
+    {
+      icon: Star,
+      title: "Punti Fedeltà",
+      description: "Guadagna punti con ogni acquisto e interazione con il nostro brand.",
+    },
+    {
+      icon: Users,
+      title: "Comunità VIP",
+      description: "Unisciti alla nostra comunità esclusiva di clienti fedeli.",
+    },
+    {
+      icon: Zap,
+      title: "Vantaggi Immediati",
+      description: "Inizia subito a guadagnare punti e sbloccare vantaggi speciali.",
+    },
+  ]
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
   }
 
-  if (showSignIn) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center p-4">
-        <SignInForm
-          onSuccess={handleAuthSuccess}
-          onSwitchToSignUp={() => {
-            setShowSignIn(false)
-            setShowSignUp(true)
-          }}
-        />
-      </div>
-    )
-  }
-
-  if (showSignUp) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center p-4">
-        <SignUpForm
-          onSuccess={handleAuthSuccess}
-          onSwitchToSignIn={() => {
-            setShowSignUp(false)
-            setShowSignIn(true)
-          }}
-        />
-      </div>
-    )
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut",
+      },
+    },
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur-md shadow-sm">
+      <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-3">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               LoyaltyApp
             </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={() => setShowSignIn(true)}>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2"
+          >
+            <Button variant="ghost" onClick={() => setShowSignIn(true)} className="hidden sm:inline-flex">
               Accedi
             </Button>
             <Button
               onClick={() => setShowSignUp(true)}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
             >
-              Registrati
+              Inizia Ora
             </Button>
-          </div>
+          </motion.div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
-        <div className="text-center max-w-4xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Il Tuo{" "}
-              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Sistema Fedeltà
-              </span>{" "}
-              Digitale
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Guadagna punti ad ogni acquisto, riscatta premi esclusivi e goditi vantaggi riservati ai membri più
-              fedeli.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      <motion.section
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="container mx-auto px-4 py-16 md:py-24"
+      >
+        <div className="text-center">
+          <motion.div variants={itemVariants} className="mb-4">
+            <Badge variant="secondary" className="mb-4 bg-purple-100 text-purple-700 hover:bg-purple-200">
+              🎉 Benvenuto nel futuro della fedeltà
+            </Badge>
+          </motion.div>
+
+          <motion.h1
+            variants={itemVariants}
+            className="mb-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl"
+          >
+            Trasforma la tua{" "}
+            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">fedeltà</span>{" "}
+            in premi
+          </motion.h1>
+
+          <motion.p variants={itemVariants} className="mx-auto mb-8 max-w-2xl text-lg text-gray-600 md:text-xl">
+            Unisciti al nostro programma fedeltà e inizia a guadagnare punti con ogni interazione. Riscatta premi
+            esclusivi e goditi vantaggi speciali riservati solo a te.
+          </motion.p>
+
+          <motion.div variants={itemVariants} className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+            <Button
+              size="lg"
+              onClick={() => setShowSignUp(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              Inizia il Tuo Viaggio
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => setShowSignIn(true)}
+              className="border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              Hai già un account?
+            </Button>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      {/* Features Section */}
+      <motion.section
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        className="container mx-auto px-4 py-16"
+      >
+        <motion.div variants={itemVariants} className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Perché scegliere il nostro programma?</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Scopri tutti i vantaggi che ti aspettano nel nostro ecosistema di fedeltà
+          </p>
+        </motion.div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {features.map((feature, index) => (
+            <motion.div key={index} variants={itemVariants}>
+              <Card className="h-full border-0 shadow-lg hover:shadow-xl transition-all duration-200 bg-white/80 backdrop-blur-sm">
+                <CardHeader className="text-center pb-4">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
+                    <feature.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <CardDescription className="text-center text-gray-600">{feature.description}</CardDescription>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* CTA Section */}
+      <motion.section
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        className="container mx-auto px-4 py-16"
+      >
+        <motion.div variants={itemVariants}>
+          <Card className="border-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-2xl">
+            <CardContent className="p-8 md:p-12 text-center">
+              <h3 className="text-2xl md:text-3xl font-bold mb-4">Pronto a iniziare?</h3>
+              <p className="text-lg mb-6 text-purple-100 max-w-2xl mx-auto">
+                Registrati oggi stesso e ricevi immediatamente i tuoi primi punti di benvenuto!
+              </p>
               <Button
                 size="lg"
                 onClick={() => setShowSignUp(true)}
-                className="h-12 px-8 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-white text-purple-600 hover:bg-gray-100 shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Inizia Ora Gratis
+                Registrati Gratis
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => setShowSignIn(true)}
-                className="h-12 px-8 border-purple-200 hover:bg-purple-50"
-              >
-                Accedi al Tuo Account
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Perché Scegliere LoyaltyApp?</h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Un sistema completo per gestire la fedeltà dei tuoi clienti con funzionalità avanzate e interfaccia
-            intuitiva.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg flex items-center justify-center mb-4">
-              <Gift className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Premi Esclusivi</h3>
-            <p className="text-gray-600">
-              Riscatta i tuoi punti con una vasta gamma di premi personalizzati e offerte speciali riservate ai membri.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg flex items-center justify-center mb-4">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Tracciamento Punti</h3>
-            <p className="text-gray-600">
-              Monitora i tuoi punti in tempo reale con una dashboard intuitiva e cronologia dettagliata delle
-              transazioni.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Gestione Utenti</h3>
-            <p className="text-gray-600">
-              Sistema completo di gestione utenti con pannello amministrativo avanzato per il controllo totale.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-yellow-600 to-orange-600 rounded-lg flex items-center justify-center mb-4">
-              <Star className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Esperienza Premium</h3>
-            <p className="text-gray-600">
-              Interfaccia moderna e responsive ottimizzata per tutti i dispositivi con animazioni fluide.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-red-600 to-pink-600 rounded-lg flex items-center justify-center mb-4">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Sicurezza Avanzata</h3>
-            <p className="text-gray-600">
-              Protezione dei dati con autenticazione sicura e crittografia avanzata per la massima tranquillità.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <div className="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center mb-4">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Veloce e Affidabile</h3>
-            <p className="text-gray-600">
-              Prestazioni ottimizzate con caricamento istantaneo e sincronizzazione in tempo reale dei dati.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-4 py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-3xl p-8 md:p-12 text-center text-white"
-        >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Pronto a Iniziare il Tuo Viaggio Fedeltà?</h2>
-          <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-            Unisciti a migliaia di utenti che hanno già scoperto i vantaggi del nostro sistema fedeltà digitale.
-          </p>
-          <Button
-            size="lg"
-            onClick={() => setShowSignUp(true)}
-            className="h-12 px-8 bg-white text-purple-600 hover:bg-gray-100 shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            Registrati Gratuitamente
-          </Button>
+            </CardContent>
+          </Card>
         </motion.div>
-      </section>
+      </motion.section>
 
-      {/* Footer */}
-      <footer className="border-t bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between">
-            <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                LoyaltyApp
-              </span>
-            </div>
-            <p className="text-gray-600 text-sm">© 2024 LoyaltyApp. Tutti i diritti riservati.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Sign Up Dialog */}
+      <Dialog open={showSignUp} onOpenChange={setShowSignUp}>
+        <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Crea il Tuo Account
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600">
+              Unisciti alla nostra community e inizia a guadagnare punti!
+            </DialogDescription>
+          </DialogHeader>
+          <SignUpForm
+            onClose={() => setShowSignUp(false)}
+            onSignInClick={() => {
+              setShowSignUp(false)
+              setShowSignIn(true)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Sign In Dialog */}
+      <Dialog open={showSignIn} onOpenChange={setShowSignIn}>
+        <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Bentornato!
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600">
+              Accedi al tuo account per continuare il tuo viaggio di premi
+            </DialogDescription>
+          </DialogHeader>
+          <SignInForm
+            onClose={() => setShowSignIn(false)}
+            onSignUpClick={() => {
+              setShowSignIn(false)
+              setShowSignUp(true)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -27,7 +27,6 @@ import {
   getAdminRedeemedRewards,
   fulfillReward,
   getUserProfile,
-  getAdminStats,
 } from "@/app/actions"
 import { useRouter } from "next/navigation"
 import { Loader2, LogOut, UserPlus, Users, Gift, CheckCircle, Clock, Crown, TrendingUp } from "lucide-react"
@@ -66,7 +65,6 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
   const [user, setUser] = useState<UserProfile | null>(initialUser)
   const [users, setUsers] = useState<UserProfile[]>([])
   const [redeemedRewards, setRedeemedRewards] = useState<RedeemedReward[]>([])
-  const [stats, setStats] = useState({ totalUsers: 0, totalPoints: 0, pendingRewards: 0 })
   const [addPointsData, setAddPointsData] = useState({
     email: "",
     amount: 0,
@@ -80,29 +78,21 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
   useEffect(() => {
     const fetchData = async () => {
       const userResult = await getUserProfile()
-      if (userResult.success && userResult.data?.profile && userResult.data.profile.is_admin) {
-        setUser(userResult.data.profile)
+      if (userResult.success && userResult.profile && userResult.profile.is_admin) {
+        setUser(userResult.profile)
 
-        const [usersResult, rewardsResult, statsResult] = await Promise.all([
-          getUsersForAdminView(),
-          getAdminRedeemedRewards(),
-          getAdminStats(),
-        ])
+        const [usersResult, rewardsResult] = await Promise.all([getUsersForAdminView(), getAdminRedeemedRewards()])
 
-        if (usersResult.success && usersResult.data) {
-          setUsers(usersResult.data.users)
+        if (usersResult.success && usersResult.users) {
+          setUsers(usersResult.users)
         } else {
           toast.error(usersResult.message || "Impossibile caricare gli utenti.")
         }
 
-        if (rewardsResult.success && rewardsResult.data) {
-          setRedeemedRewards(rewardsResult.data.redeemedRewards)
+        if (rewardsResult.success && rewardsResult.redeemedRewards) {
+          setRedeemedRewards(rewardsResult.redeemedRewards)
         } else {
           toast.error(rewardsResult.message || "Impossibile caricare i premi riscattati.")
-        }
-
-        if (statsResult.success && statsResult.data) {
-          setStats(statsResult.data)
         }
       } else {
         toast.error(userResult.message || "Accesso non autorizzato all'area admin.")
@@ -141,13 +131,9 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
       setAddPointsData({ email: "", amount: 0, description: "" })
       setIsAddPointsDialogOpen(false)
 
-      // Refresh data
-      const [usersResult, statsResult] = await Promise.all([getUsersForAdminView(), getAdminStats()])
-      if (usersResult.success && usersResult.data) {
-        setUsers(usersResult.data.users)
-      }
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data)
+      const usersResult = await getUsersForAdminView()
+      if (usersResult.success && usersResult.users) {
+        setUsers(usersResult.users)
       }
     } else {
       toast.error(result.message)
@@ -161,12 +147,9 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
 
     if (result.success) {
       toast.success(result.message)
-      const [rewardsResult, statsResult] = await Promise.all([getAdminRedeemedRewards(), getAdminStats()])
-      if (rewardsResult.success && rewardsResult.data) {
-        setRedeemedRewards(rewardsResult.data.redeemedRewards)
-      }
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data)
+      const rewardsResult = await getAdminRedeemedRewards()
+      if (rewardsResult.success && rewardsResult.redeemedRewards) {
+        setRedeemedRewards(rewardsResult.redeemedRewards)
       }
     } else {
       toast.error(result.message)
@@ -198,6 +181,10 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
   if (!user || !user.is_admin) {
     return null
   }
+
+  const totalUsers = users.length
+  const totalPoints = users.reduce((sum, u) => sum + u.points, 0)
+  const pendingRewards = redeemedRewards.filter((r) => !r.redeemed_at).length
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
@@ -249,7 +236,7 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
                 <Users className="w-4 h-4 text-gray-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalUsers}</div>
+                <div className="text-2xl font-bold text-gray-900">{totalUsers}</div>
                 <p className="text-xs text-gray-500 mt-1">Membri registrati</p>
               </CardContent>
             </Card>
@@ -266,7 +253,7 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
                 <TrendingUp className="w-4 h-4 text-gray-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats.totalPoints.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-gray-900">{totalPoints.toLocaleString()}</div>
                 <p className="text-xs text-gray-500 mt-1">Nel sistema</p>
               </CardContent>
             </Card>
@@ -283,7 +270,7 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
                 <Clock className="w-4 h-4 text-gray-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stats.pendingRewards}</div>
+                <div className="text-2xl font-bold text-gray-900">{pendingRewards}</div>
                 <p className="text-xs text-gray-500 mt-1">Da evadere</p>
               </CardContent>
             </Card>
@@ -335,7 +322,6 @@ export function AdminDashboard({ initialUser }: AdminDashboardProps) {
                           onChange={(e) => setAddPointsData((prev) => ({ ...prev, amount: Number(e.target.value) }))}
                           placeholder="100"
                           min="1"
-                          max="10000"
                           required
                         />
                       </div>

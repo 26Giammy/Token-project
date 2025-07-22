@@ -58,9 +58,9 @@ export function Dashboard({ initialUser, initialActivity }: DashboardProps) {
   useEffect(() => {
     const fetchProfile = async () => {
       const result = await getUserProfile()
-      if (result.success && result.data) {
-        setUser(result.data.profile)
-        setActivity(result.data.activity || [])
+      if (result.success && result.profile) {
+        setUser(result.profile)
+        setActivity(result.activity || [])
       } else {
         toast.error(result.message || "Impossibile caricare il profilo utente.")
         router.push("/")
@@ -106,15 +106,13 @@ export function Dashboard({ initialUser, initialActivity }: DashboardProps) {
 
     if (result.success) {
       toast.success(result.message)
-      setUser((prevUser) => (prevUser ? { ...prevUser, points: result.data?.newPoints || prevUser.points } : null))
+      setUser((prevUser) => (prevUser ? { ...prevUser, points: result.newPoints || prevUser.points } : null))
       setRedeemAmount(0)
       setRedeemDescription("")
       setIsDialogOpen(false)
-
-      // Refresh activity
       const updatedProfile = await getUserProfile()
-      if (updatedProfile.success && updatedProfile.data) {
-        setActivity(updatedProfile.data.activity)
+      if (updatedProfile.success && updatedProfile.activity) {
+        setActivity(updatedProfile.activity)
       }
     } else {
       toast.error(result.message)
